@@ -585,677 +585,742 @@ print(f"Number of programmes: {len(model_data['Q'])}")
 print(f"Collection groups: {len(model_data['SC_cl'])}")
 print(f"Regression groups: {len(model_data['SCL_cr'])}")
 
+travel_data = [
+    ("Bioquarter", "Bioquarter", 0),
+    ("Central", "Bioquarter", 60),
+    ("Easter Bush", "Bioquarter", 60),
+    ("Holyrood", "Bioquarter", 60),
+    ("King's Buildings", "Bioquarter", 60),
+    ("Lauriston", "Bioquarter", 60),
+    ("New College", "Bioquarter", 60),
+    ("Western General", "Bioquarter", 60),
+    ("Bioquarter", "Central", 60),
+    ("Central", "Central", 0),
+    ("Easter Bush", "Central", 60),
+    ("Holyrood", "Central", 10),
+    ("King's Buildings", "Central", 30),
+    ("Lauriston", "Central", 10),
+    ("New College", "Central", 10),
+    ("Western General", "Central", 60),
+    ("Bioquarter", "Easter Bush", 60),
+    ("Central", "Easter Bush", 60),
+    ("Easter Bush", "Easter Bush", 0),
+    ("Holyrood", "Easter Bush", 60),
+    ("King's Buildings", "Easter Bush", 60),
+    ("Lauriston", "Easter Bush", 60),
+    ("New College", "Easter Bush", 60),
+    ("Western General", "Easter Bush", 60),
+    ("Bioquarter", "Holyrood", 60),
+    ("Central", "Holyrood", 10),
+    ("Easter Bush", "Holyrood", 60),
+    ("Holyrood", "Holyrood", 0),
+    ("King's Buildings", "Holyrood", 30),
+    ("Lauriston", "Holyrood", 10),
+    ("New College", "Holyrood", 10),
+    ("Western General", "Holyrood", 60),
+    ("Bioquarter", "King's Buildings", 60),
+    ("Central", "King's Buildings", 30),
+    ("Easter Bush", "King's Buildings", 60),
+    ("Holyrood", "King's Buildings", 30),
+    ("King's Buildings", "King's Buildings", 0),
+    ("Lauriston", "King's Buildings", 30),
+    ("New College", "King's Buildings", 30),
+    ("Western General", "King's Buildings", 60),
+    ("Bioquarter", "Lauriston", 60),
+    ("Central", "Lauriston", 10),
+    ("Easter Bush", "Lauriston", 60),
+    ("Holyrood", "Lauriston", 10),
+    ("King's Buildings", "Lauriston", 30),
+    ("Lauriston", "Lauriston", 0),
+    ("New College", "Lauriston", 10),
+    ("Western General", "Lauriston", 60),
+    ("Bioquarter", "New College", 60),
+    ("Central", "New College", 10),
+    ("Easter Bush", "New College", 60),
+    ("Holyrood", "New College", 10),
+    ("King's Buildings", "New College", 30),
+    ("Lauriston", "New College", 10),
+    ("New College", "New College", 0),
+    ("Western General", "New College", 60),
+    ("Bioquarter", "Western General", 60),
+    ("Central", "Western General", 60),
+    ("Easter Bush", "Western General", 60),
+    ("Holyrood", "Western General", 60),
+    ("King's Buildings", "Western General", 60),
+    ("Lauriston", "Western General", 60),
+    ("New College", "Western General", 60),
+    ("Western General", "Western General", 0)
+]
+
+# Create a dictionary for fast lookup
+travel_time_dict = {}
+for from_camp, to_camp, tt in travel_data:
+    travel_time_dict[(from_camp, to_camp)] = tt
+
+
 def build_model_from_parameters(parameters):
     """
-    Build the Xpress model using the extracted parameters
+    Build the Xpress model for joint degrees (without pathway choices).
     """
-    
     # Unpack parameters
-    G = parameters['G']  # Gateway courses
-    O = parameters['O']  # Optional courses
-    S = parameters['S']  # Semesters
-    D = parameters['D']  # Days
-    H = parameters['H']  # Hours
-    W = parameters['W']  # Week parity
-    Q = parameters['Q']  # Programmes
-    E = parameters['E']      # All weeks
-    E1 = parameters['E1']    # Semester 1 weeks
-    E2 = parameters['E2']    # Semester 2 weeks
-    K = parameters['K']      # Campuses
-    
-    # Constants
-    C_g = parameters['C_g']  # 4 gateway courses per semester
-    C_o = parameters['C_o']  # 2 optional courses per semester
-    
-    # Teaching event counts
-    R_g_L = parameters['R_g_L']  # Lectures per gateway (could be dict or int)
-    R_g_W = parameters['R_g_W']  # Weekly workshops per gateway
-    R_g_F = parameters['R_g_F']  # Fortnightly workshops per gateway
-    R_o_L = parameters['R_o_L']  # Lectures per optional
-    R_o_W = parameters['R_o_W']  # Workshops per optional
-    
-    # Timetable data
-    v = parameters['v']  # Scheduled events for mandatory courses
-    
-    # Programme-specific data
+    G = parameters['G']
+    O = parameters['O']
+    S = parameters['S']
+    D = parameters['D']
+    H = parameters['H']
+    W = parameters['W']
+    Q = parameters['Q']
+    E = parameters['E']
+    E1 = parameters['E1']
+    E2 = parameters['E2']
+    K = parameters['K']
+    C_g = parameters['C_g']
+    C_o = parameters['C_o']
+    R_g_L = parameters['R_g_L']
+    R_g_W = parameters['R_g_W']
+    R_g_F = parameters['R_g_F']
+    R_o_L = parameters['R_o_L']
+    R_o_W = parameters['R_o_W']
+    v = parameters['v']
     programme_data = parameters['programme_data']
     CO_CO_q = {prog: programme_data[prog]['compulsory_courses'] for prog in Q}
     CO_OP_q = {prog: programme_data[prog]['optional_courses'] for prog in Q}
     CO_q = {prog: programme_data[prog]['all_courses'] for prog in Q}
-    
-    # Collection and regression group data
     SC_cl = parameters['SC_cl']
     SCL_cr = parameters['SCL_cr']
     min_CL = parameters['min_CL']
     max_CL = parameters['max_CL']
     min_CR = parameters['min_CR']
     max_CR = parameters['max_CR']
-    
-    # Credit data
     n_co = parameters['n_co']
     n_q = parameters['n_q']
-    
+
+    # Soft constraint weights
+    lambda_travel = 0.01
+    lambda_clash = 0.1
+    lambda_late = 0.344
+    lambda_lunch = 0.113
+    lambda_isolated = 0.057
+    lambda_days = 0.133
+    lambda_wed = 0.029
+
+    # Travel time dictionary
+    global travel_time_dict
+
+    # Constants based on actual hours
+    late_hour = 17
+    lunch_hours = [12, 13]
+    isolated_hours = list(range(10, 17))
+    wednesday_hours = list(range(13, 18))
+    wed_idx = 3  # Wednesday is day index 3
+
     # Create problem
     p = xp.problem()
-    
+
     # ==================== DECISION VARIABLES ====================
     print("Creating decision variables...")
-    
-    # Gateway course variables
+
+    # Gateway variables
     x_L = {}
     x_W = {}
     x_F = {}
-    
     for g in G:
         for d in D:
             for h in H:
                 for s in S:
-                    x_L[(g, d, h, s)] = xp.var(vartype=xp.binary, 
-                                                 name=f"xL_{g}_{d}_{h}_{s}")
-                    x_W[(g, d, h, s)] = xp.var(vartype=xp.binary, 
-                                                 name=f"xW_{g}_{d}_{h}_{s}")
+                    x_L[(g, d, h, s)] = xp.var(vartype=xp.binary, name=f"xL_{g}_{d}_{h}_{s}")
+                    x_W[(g, d, h, s)] = xp.var(vartype=xp.binary, name=f"xW_{g}_{d}_{h}_{s}")
                     for w in W:
-                        x_F[(g, d, h, s, w)] = xp.var(vartype=xp.binary, 
-                                                       name=f"xF_{g}_{d}_{h}_{s}_{w}")
-    
-    # Optional course variables
+                        x_F[(g, d, h, s, w)] = xp.var(vartype=xp.binary, name=f"xF_{g}_{d}_{h}_{s}_{w}")
+
+    # Optional maths variables
     y_L = {}
     y_W = {}
-    
     for o in O:
         for d in D:
             for h in H:
                 for s in S:
-                    y_L[(o, d, h, s)] = xp.var(vartype=xp.binary, 
-                                                name=f"yL_{o}_{d}_{h}_{s}")
-                    y_W[(o, d, h, s)] = xp.var(vartype=xp.binary, 
-                                                name=f"yW_{o}_{d}_{h}_{s}")
-    
-    # Course assignment variables
-    z = {(g, s): xp.var(vartype=xp.binary, name=f"z_{g}_{s}") 
-         for g in G for s in S}
-    w_var = {(o, s): xp.var(vartype=xp.binary, name=f"w_{o}_{s}") 
-             for o in O for s in S}
-    
-    # Student course choice variables
+                    y_L[(o, d, h, s)] = xp.var(vartype=xp.binary, name=f"yL_{o}_{d}_{h}_{s}")
+                    y_W[(o, d, h, s)] = xp.var(vartype=xp.binary, name=f"yW_{o}_{d}_{h}_{s}")
+
+    # Semester assignment
+    z = {(g, s): xp.var(vartype=xp.binary, name=f"z_{g}_{s}") for g in G for s in S}
+    w_var = {(o, s): xp.var(vartype=xp.binary, name=f"w_{o}_{s}") for o in O for s in S}
+
+    # Student choice for non‑maths courses
     a = {}
-    
-    
     for q in Q:
         for co in CO_q[q]:
             a[(q, co)] = xp.var(vartype=xp.binary, name=f"a_{q}_{co}")
-    
-    
-    # Add all variables to problem
+
+    # Linearisation for product a * xL (travel)
+    ind = {}
+    for q in Q:
+        for co in CO_q[q]:
+            for g in G:
+                for d in D:
+                    for h in H:
+                        for s in S:
+                            ind[(q, co, g, d, h, s)] = xp.var(vartype=xp.binary, name=f"ind_{q}_{co}_{g}_{d}_{h}_{s}")
+
+    # Linearisation for product a * a (travel between non‑maths)
+    ch = {}
+    for q in Q:
+        for co in CO_q[q]:
+            for co2 in CO_q[q]:
+                if co < co2:
+                    ch[(q, co, co2)] = xp.var(vartype=xp.binary, name=f"ch_{q}_{co}_{co2}")
+
+    # Isolated class indicators
+    is_isolated = {}
+    for q in Q:
+        for d in D:
+            for h in isolated_hours:
+                for s in S:
+                    weeks = E1 if s == 1 else E2
+                    for e in weeks:
+                        is_isolated[(q, d, h, s, e)] = xp.var(vartype=xp.binary,
+                                                              name=f"is_isolated_{q}_{d}_{h}_{s}_{e}")
+
+    # Day‑used indicators
+    b = {}
+    for q in Q:
+        for d in D:
+            for s in S:
+                weeks = E1 if s == 1 else E2
+                for e in weeks:
+                    b[(q, d, s, e)] = xp.var(vartype=xp.binary, name=f"b_{q}_{d}_{s}_{e}")
+
+    # Add all variables
     all_vars = (list(x_L.values()) + list(x_W.values()) + list(x_F.values()) +
                 list(y_L.values()) + list(y_W.values()) +
                 list(z.values()) + list(w_var.values()) +
-                list(a.values()))
-    
+                list(a.values()) +
+                list(ind.values()) + list(ch.values()) +
+                list(is_isolated.values()) + list(b.values()))
     p.addVariable(all_vars)
-    
-    print("Creating event presence expressions...")
-    
+
+    # ==================== HARD CONSTRAINTS ====================
+    print("Adding hard constraints...")
+    constraint_count = 0
+    constraint_list = []
+
+    def add_constraint(expr, name):
+        nonlocal constraint_count
+        row = p.addConstraint(expr)
+        constraint_list.append((row, name))
+        constraint_count += 1
+
+    def flatten_weeks(week_list):
+        if not isinstance(week_list, (list, tuple)):
+            return [week_list]
+        flat = []
+        for item in week_list:
+            if isinstance(item, (list, tuple)):
+                flat.extend(flatten_weeks(item))
+            else:
+                flat.append(item)
+        return flat
+
+    E_flat = flatten_weeks(E)
+    E1_flat = flatten_weeks(E1)
+    E2_flat = flatten_weeks(E2)
+
+    # 1. Fortnightly workshops per gateway
+    for g in G:
+        add_constraint(xp.Sum(x_F[(g, d, h, s, w)] for d in D for h in H for s in S for w in W) == R_g_F,
+                       f"Fortnightly_{g}")
+
+    # 2. No multiple events per course in same slot
+    for g in G:
+        for d in D:
+            for h in H:
+                for s in S:
+                    add_constraint(x_L[(g, d, h, s)] + x_W[(g, d, h, s)] +
+                                   xp.Sum(x_F[(g, d, h, s, w)] for w in W) <= 1,
+                                   f"CourseNoClash_G_{g}_{d}_{h}_{s}")
+    for o in O:
+        for d in D:
+            for h in H:
+                for s in S:
+                    add_constraint(y_L[(o, d, h, s)] + y_W[(o, d, h, s)] <= 1,
+                                   f"CourseNoClash_O_{o}_{d}_{h}_{s}")
+
+    # 3. Global no‑clash per week (Maths only)
+    for d in D:
+        for h in H:
+            for s in S:
+                for w in W:
+                    add_constraint(
+                        xp.Sum(x_L[(g, d, h, s)] + x_W[(g, d, h, s)] for g in G) +
+                        xp.Sum(y_L[(o, d, h, s)] + y_W[(o, d, h, s)] for o in O) +
+                        xp.Sum(x_F[(g, d, h, s, w)] for g in G) <= 1,
+                        f"GlobalNoClash_{d}_{h}_{s}_{w}")
+
+    # 4. Events limited to assigned semester
+    for g in G:
+        for d in D:
+            for h in H:
+                for s in S:
+                    add_constraint(x_L[(g, d, h, s)] <= z[(g, s)],
+                                   f"SemLimit_xL_{g}_{d}_{h}_{s}")
+                    add_constraint(x_W[(g, d, h, s)] <= z[(g, s)],
+                                   f"SemLimit_xW_{g}_{d}_{h}_{s}")
+                    for w in W:
+                        add_constraint(x_F[(g, d, h, s, w)] <= z[(g, s)],
+                                       f"SemLimit_xF_{g}_{d}_{h}_{s}_{w}")
+    for o in O:
+        for d in D:
+            for h in H:
+                for s in S:
+                    add_constraint(y_L[(o, d, h, s)] <= w_var[(o, s)],
+                                   f"SemLimit_yL_{o}_{d}_{h}_{s}")
+                    add_constraint(y_W[(o, d, h, s)] <= w_var[(o, s)],
+                                   f"SemLimit_yW_{o}_{d}_{h}_{s}")
+
+    # 5. Gateway course semester assignment
+    for g in G:
+        add_constraint(xp.Sum(z[(g, s)] for s in S) == 1, f"GateSemAssign_{g}")
+
+    # 6. Optional course semester assignment
+    for o in O:
+        add_constraint(xp.Sum(w_var[(o, s)] for s in S) == 1, f"OptSemAssign_{o}")
+
+    # 7. Exactly required number of courses per semester
+    for s in S:
+        add_constraint(xp.Sum(z[(g, s)] for g in G) == C_g, f"GateCount_{s}")
+        add_constraint(xp.Sum(w_var[(o, s)] for o in O) == C_o, f"OptCount_{s}")
+
+    # 8. Teaching event counts for gateway
+    for g in G:
+        for s in S:
+            lect_count = R_g_L[g] if isinstance(R_g_L, dict) else R_g_L
+            add_constraint(xp.Sum(x_L[(g, d, h, s)] for d in D for h in H) == lect_count * z[(g, s)],
+                           f"GateLectures_{g}_{s}")
+            workshop_count = R_g_W[g] if isinstance(R_g_W, dict) else R_g_W
+            add_constraint(xp.Sum(x_W[(g, d, h, s)] for d in D for h in H) == workshop_count * z[(g, s)],
+                           f"GateWorkshops_{g}_{s}")
+
+    # 9. Teaching event counts for optional
+    for o in O:
+        for s in S:
+            add_constraint(xp.Sum(y_L[(o, d, h, s)] for d in D for h in H) == R_o_L * w_var[(o, s)],
+                           f"OptLectures_{o}_{s}")
+            add_constraint(xp.Sum(y_W[(o, d, h, s)] for d in D for h in H) == R_o_W * w_var[(o, s)],
+                           f"OptWorkshops_{o}_{s}")
+
+    # 10. Collection credit requirements
+    for cl_id in SC_cl:
+        for q in Q:
+            if cl_id in programme_data[q].get('collections', {}):
+                collection_sum = xp.Sum(n_co[co] * a[(q, co)]
+                                        for co in SC_cl[cl_id]
+                                        if co in CO_q[q])
+                add_constraint(collection_sum >= min_CL[cl_id],
+                               f"CollectionMin_{cl_id}_{q}")
+                add_constraint(collection_sum <= max_CL[cl_id],
+                               f"CollectionMax_{cl_id}_{q}")
+
+    # 11. Regression group credit requirements
+    for rg_id in SCL_cr:
+        for q in Q:
+            if rg_id in programme_data[q].get('regression_groups', {}):
+                reg_sum = xp.Sum(n_co[co] * a[(q, co)]
+                                 for cl_id in SCL_cr[rg_id]
+                                 for co in SC_cl[cl_id]
+                                 if co in CO_q[q])
+                add_constraint(reg_sum >= min_CR[rg_id],
+                               f"RegGroupMin_{rg_id}_{q}")
+                add_constraint(reg_sum <= max_CR[rg_id],
+                               f"RegGroupMax_{rg_id}_{q}")
+
+    # 12. Compulsory courses must be taken
+    for q in Q:
+        for co in CO_CO_q[q]:
+            add_constraint(a[(q, co)] == 1, f"Compulsory_{q}_{co}")
+
+    # 13. Minimum credits outside Maths
+    for q in Q:
+        outside_credits = xp.Sum(n_co[co] * a[(q, co)]
+                                 for co in CO_q[q]
+                                 if co not in G and co not in O)
+        add_constraint(outside_credits >= n_q[q], f"OutsideCredits_{q}")
+
+    # 14. No clashes with compulsory courses per curriculum (using xL directly)
+    for q in Q:
+        for d in D:
+            for h in H:
+                for s in S:
+                    weeks = E1_flat if s == 1 else E2_flat if s == 2 else E_flat
+                    for e in weeks:
+                        if isinstance(e, (list, tuple)): continue
+                        for k in K:
+                            gateway_sum = xp.Sum(x_L[(g, d, h, s)] for g in G)
+                            compulsory_terms = []
+                            for co in CO_CO_q[q]:
+                                key = (co, d, h, e, q, k)
+                                val = v.get(key, 0)
+                                if val > 0:
+                                    compulsory_terms.append(a[(q, co)] * val)
+                            if compulsory_terms:
+                                compulsory_sum = xp.Sum(compulsory_terms)
+                                add_constraint(gateway_sum + compulsory_sum <= 1,
+                                               f"ClashComp_{q}_{d}_{h}_{s}_{e}_{k}")
+
+    # 15. No clashes with optional courses per curriculum (using xL directly)
+    for q in Q:
+        for d in D:
+            for h in H:
+                for s in S:
+                    weeks = E1_flat if s == 1 else E2_flat if s == 2 else E_flat
+                    for e in weeks:
+                        if isinstance(e, (list, tuple)): continue
+                        for k in K:
+                            gateway_sum = xp.Sum(x_L[(g, d, h, s)] for g in G)
+                            optional_terms = []
+                            for co in CO_OP_q[q]:
+                                key = (co, d, h, e, q, k)
+                                val = v.get(key, 0)
+                                if val > 0:
+                                    optional_terms.append(a[(q, co)] * val)
+                            if optional_terms:
+                                optional_sum = xp.Sum(optional_terms)
+                                add_constraint(gateway_sum + optional_sum <= 1,
+                                               f"ClashOpt_{q}_{d}_{h}_{s}_{e}_{k}")
+
+    # 16. Linearisation for ind (product a * xL)
+    for q in Q:
+        for co in CO_q[q]:
+            for g in G:
+                for d in D:
+                    for h in H:
+                        for s in S:
+                            vv = ind[(q, co, g, d, h, s)]
+                            add_constraint(vv <= a[(q, co)], f"Ind1_{q}_{co}_{g}_{d}_{h}_{s}")
+                            add_constraint(vv <= x_L[(g, d, h, s)], f"Ind2_{q}_{co}_{g}_{d}_{h}_{s}")
+                            add_constraint(vv >= a[(q, co)] + x_L[(g, d, h, s)] - 1,
+                                           f"Ind3_{q}_{co}_{g}_{d}_{h}_{s}")
+
+    # 17. Linearisation for ch (product a * a)
+    for q in Q:
+        for co in CO_q[q]:
+            for co2 in CO_q[q]:
+                if co < co2:
+                    vv = ch[(q, co, co2)]
+                    add_constraint(vv <= a[(q, co)], f"Ch1_{q}_{co}_{co2}")
+                    add_constraint(vv <= a[(q, co2)], f"Ch2_{q}_{co}_{co2}")
+                    add_constraint(vv >= a[(q, co)] + a[(q, co2)] - 1, f"Ch3_{q}_{co}_{co2}")
+
+    # ==================== SOFT CONSTRAINT AUXILIARY ====================
+    # Event presence P for joint curricula
     P = {}
     for q in Q:
         for d in D:
             for h in H:
                 for s in S:
-                    weeks = E1 if s == 1 else E2                    
+                    weeks = E1 if s == 1 else E2
                     for e in weeks:
-                        expr = 0
-                        
-                        # Gateway events (shared across programmes)
-                        expr += xp.Sum(x_L[(g,d,h,s)] + x_W[(g,d,h,s)] for g in G)
-                        expr += xp.Sum(x_F[(g,d,h,s,w)] for g in G for w in W)
-                        
-                        # Optional maths
-                        expr += xp.Sum(y_L[(o,d,h,s)] + y_W[(o,d,h,s)] for o in O)
-                        
-                        # Non-maths courses (programme-specific)
-                        for co in CO_q[q]:
-                            for k in K:
-                                expr += a[(q,co)] * v.get((co,d,h,e,q,k), 0)
-                                
-                        P[(q,d,h,s,e)] = expr
-                        
-    print("Creating soft constraint variables...")
-    
-    late = {}
-    lunch = {}
-    isol = {}
-    day_used = {}
-    
+                        gateway_part = xp.Sum(x_L[(g, d, h, s)] for g in G)
+                        nonmaths_part = xp.Sum(a[(q, co)] * v.get((co, d, h, e, q, k), 0)
+                                               for co in CO_q[q] for k in K)
+                        P[(q, d, h, s, e)] = gateway_part + nonmaths_part
+
+    # 18. Isolated classes (for hours in isolated_hours)
+    for q in Q:
+        for d in D:
+            for s in S:
+                weeks = E1 if s == 1 else E2
+                for e in weeks:
+                    for h in isolated_hours:
+                        p_curr = P[(q, d, h, s, e)]
+                        p_next = P[(q, d, h + 1, s, e)] if h + 1 in H else 0
+                        p_prev = P[(q, d, h - 1, s, e)] if h - 1 in H else 0
+                        add_constraint(is_isolated[(q, d, h, s, e)] >= p_curr - p_next - p_prev,
+                                       f"IsolatedGe_{q}_{d}_{h}_{s}_{e}")
+                        add_constraint(is_isolated[(q, d, h, s, e)] <= p_curr,
+                                       f"IsolatedLe_{q}_{d}_{h}_{s}_{e}")
+
+    # 19. Days used (all hours)
+    for q in Q:
+        for d in D:
+            for s in S:
+                weeks = E1 if s == 1 else E2
+                for e in weeks:
+                    total_day = xp.Sum(P[(q, d, h, s, e)] for h in H)
+                    add_constraint(b[(q, d, s, e)] <= total_day, f"DaysLe_{q}_{d}_{s}_{e}")
+                    add_constraint(total_day <= len(H) * b[(q, d, s, e)], f"DaysGe_{q}_{d}_{s}_{e}")
+
+    # ==================== OBJECTIVE ====================
+    print("Building objective...")
+
+    # Normalisation constants (maximum possible values for raw counts over a semester)
+    weeks_per_sem = len(E1)          # 26
+    N_late  = len(S) * len(D) * weeks_per_sem          # 2 * 5 * 26 = 260
+    N_lunch = len(S) * len(D) * 2 * weeks_per_sem      # 2 * 5 * 2 * 26 = 520
+    N_isol  = len(S) * len(D) * 7 * weeks_per_sem      # 2 * 5 * 7 * 26 = 1820
+    N_days  = len(S) * len(D) * weeks_per_sem          # 260
+    N_wed   = len(S) * 5 * weeks_per_sem               # 2 * 5 * 26 = 260
+
+    # Scale raw expressions by lambda / N
+    scale_late     = lambda_late / N_late
+    scale_lunch    = lambda_lunch / N_lunch
+    scale_isolated = lambda_isolated / N_isol
+    scale_days     = lambda_days / N_days
+    scale_wed      = lambda_wed / N_wed
+
+    # Travel time
+    travel_obj = 0
+    # Term 1: Maths → non‑maths (ind with co at h+1)
+    for q in Q:
+        for co in CO_q[q]:
+            for g in G:
+                for s in S:
+                    weeks = E1 if s == 1 else E2
+                    for e in weeks:
+                        for d in D:
+                            for h in H:
+                                if h + 1 not in H: continue
+                                for k in K:
+                                    val = v.get((co, d, h + 1, e, q, k), 0)
+                                    if val > 0:
+                                        travel_obj += travel_time_dict.get(('King\'s Buildings', k), 60) * val * ind[
+                                            (q, co, g, d, h, s)]
+    # Term 2: Non‑maths → Maths (ind with co at h)
+    for q in Q:
+        for co in CO_q[q]:
+            for g in G:
+                for s in S:
+                    weeks = E1 if s == 1 else E2
+                    for e in weeks:
+                        for d in D:
+                            for h in H:
+                                if h + 1 not in H: continue
+                                for k in K:
+                                    val = v.get((co, d, h, e, q, k), 0)
+                                    if val > 0:
+                                        travel_obj += travel_time_dict.get((k, 'King\'s Buildings'), 60) * val * ind[
+                                            (q, co, g, d, h + 1, s)]
+    # Term 3: Non‑maths ↔ non‑maths (using ch)
+    for q in Q:
+        for co in CO_q[q]:
+            for co2 in CO_q[q]:
+                if co < co2:
+                    for s in S:
+                        weeks = E1 if s == 1 else E2
+                        for e in weeks:
+                            for d in D:
+                                for h in H:
+                                    if h + 1 not in H: continue
+                                    for k in K:
+                                        for k2 in K:
+                                            val1 = v.get((co, d, h, e, q, k), 0)
+                                            val2 = v.get((co2, d, h + 1, e, q, k2), 0)
+                                            if val1 > 0 and val2 > 0:
+                                                travel_obj += travel_time_dict.get((k, k2), 60) * val1 * val2 * ch[
+                                                    (q, co, co2)]
+
+    # Clashes between optional maths and non‑maths courses
+    clash_obj = 0
+    for q in Q:
+        for co in CO_q[q]:
+            for s in S:
+                weeks = E1 if s == 1 else E2
+                for e in weeks:
+                    for d in D:
+                        for h in H:
+                            optional_maths = xp.Sum(y_L[(o, d, h, s)] for o in O)
+                            nonmaths = xp.Sum(a[(q, co)] * v.get((co, d, h, e, q, k), 0) for co in CO_q[q] for k in K)
+                            clash_obj += optional_maths * nonmaths
+
+    # Late, lunch, Wednesday objectives
+    late_obj = 0
+    lunch_obj = 0
+    wed_obj = 0
     for q in Q:
         for s in S:
             weeks = E1 if s == 1 else E2
-            
             for e in weeks:
                 for d in D:
-                    day_used[(q,d,s,e)] = xp.var(vartype=xp.binary, name=f"day_{q}_{d}_{s}_{e}")
-                    
-                    for h in H:
-                        late[(q,d,h,s,e)] = xp.var(vartype=xp.binary, name=f"late_{q}_{d}_{h}_{s}_{e}")
-                        lunch[(q,d,h,s,e)] = xp.var(vartype=xp.binary, name=f"lunch_{q}_{d}_{h}_{s}_{e}")
-                        
-                        if 1 <= h <= 7:
-                            isol[(q,d,h,s,e)] = xp.var(vartype=xp.binary, name=f"isol_{q}_{d}_{h}_{s}_{e}")
-    
-    p.addVariable(list(late.values()) + list(lunch.values()) + 
-              list(isol.values()) + list(day_used.values()))
-    
-    # ==================== CONSTRAINTS ====================
-    print("Adding constraints...")
-    constraint_count = 0
-    
-    # Helper function to add constraint with name
-    def add_constraint(expr, name):
-        """Add constraint with name"""
-        p.addConstraint(expr)
-        return name
-    
-    # CONSTRAINT 1: Each gateway course has exactly one fortnightly workshop
-    print("Adding constraint 1: Fortnightly workshops per gateway...")
-    for g in G:
-        cons = xp.Sum(x_F[(g, d, h, s, w)] for d in D for h in H for s in S for w in W) == R_g_F
-        p.addConstraint(cons)
-        constraint_count += 1
-    print(constraint_count)
-    # CONSTRAINT 2: A course cannot have more than one event in the same time slot
-    print("Adding constraint 2: No multiple events in same time slot...")
-    
-    # For gateway courses
-    for g in G:
-        for d in D:
-            for h in H:
-                for s in S:
-                    cons = (x_L[(g, d, h, s)] + x_W[(g, d, h, s)] + 
-                           xp.Sum(x_F[(g, d, h, s, w)] for w in W) <= 1)
-                    p.addConstraint(cons)
-                    constraint_count += 1
-    print(constraint_count)
-    # For optional courses
-    for o in O:
-        for d in D:
-            for h in H:
-                for s in S:
-                    cons = y_L[(o, d, h, s)] + y_W[(o, d, h, s)] <= 1
-                    p.addConstraint(cons)
-                    constraint_count += 1
-    print(constraint_count)
-    # CONSTRAINT 3: No clashes for students in any week (any combination condition)
-    print("Adding constraint 3: No student clashes in any week...")
-    for d in D:
-        for h in H:
-            for s in S:
-                for w in W:
-                    cons = (xp.Sum(x_L[(g, d, h, s)] + x_W[(g, d, h, s)] for g in G) +
-                           xp.Sum(y_L[(o, d, h, s)] + y_W[(o, d, h, s)] for o in O) +
-                           xp.Sum(x_F[(g, d, h, s, w)] for g in G) <= 1)
-                    p.addConstraint(cons)
-                    
-                    constraint_count += 1
-    print(constraint_count)
-    # CONSTRAINT 4: Events can only occur in the semester the course is assigned to
-    print("Adding constraint 4: Events limited to assigned semester...")
-    
-    # For gateway courses
-    for g in G:
-        for d in D:
-            for h in H:
-                for s in S:
-                    cons1 = x_L[(g, d, h, s)] <= z[(g, s)]
-                    cons2 = x_W[(g, d, h, s)] <= z[(g, s)]
-                    p.addConstraint(cons1)
-                    p.addConstraint(cons2)
-                    constraint_count += 2
-                    for w in W:
-                        cons3 = x_F[(g, d, h, s, w)] <= z[(g, s)]
-                        p.addConstraint(cons3)
-                        constraint_count += 1
-    print(constraint_count)
-    # For optional courses
-    for o in O:
-        for d in D:
-            for h in H:
-                for s in S:
-                    cons1 = y_L[(o, d, h, s)] <= w_var[(o, s)]
-                    cons2 = y_W[(o, d, h, s)] <= w_var[(o, s)]
-                    p.addConstraint(cons1)
-                    p.addConstraint(cons2)
-                    constraint_count += 2
-    print(constraint_count)
-    # CONSTRAINT 5: Gateway course assignment to semesters
-    print("Adding constraint 5: Gateway course semester assignment...")
-    for g in G:
-        cons = xp.Sum(z[(g, s)] for s in S) == 1
-        p.addConstraint(cons)
-        constraint_count += 1
-    print(constraint_count)
-    # CONSTRAINT 6: Optional course assignment to semesters
-    print("Adding constraint 6: Optional course semester assignment...")
-    for o in O:
-        cons = xp.Sum(w_var[(o, s)] for s in S) == 1
-        p.addConstraint(cons)
-        constraint_count += 1
-    print(constraint_count)
-    # CONSTRAINT 7: Exactly required number of courses per semester
-    print("Adding constraint 7: Course count per semester...")
-    for s in S:
-        cons1 = xp.Sum(z[(g, s)] for g in G) == C_g
-        cons2 = xp.Sum(w_var[(o, s)] for o in O) == C_o
-        p.addConstraint(cons1)
-        p.addConstraint(cons2)
-        constraint_count += 2
-    print(constraint_count)
-    # CONSTRAINT 8: Correct number of teaching events for gateway courses
-    print("Adding constraint 8: Teaching events count for gateway...")
-    for g in G:
-        for s in S:
-            # Lectures
-            lect_count = R_g_L[g] if isinstance(R_g_L, dict) else R_g_L
-            cons = xp.Sum(x_L[(g, d, h, s)] for d in D for h in H) == lect_count * z[(g, s)]
-            p.addConstraint(cons)
-            
-            # Weekly workshops
-            workshop_count = R_g_W[g] if isinstance(R_g_W, dict) else R_g_W
-            cons = xp.Sum(x_W[(g, d, h, s)] for d in D for h in H) == workshop_count * z[(g, s)]
-            p.addConstraint(cons)
-            constraint_count += 2
-    print(constraint_count)
-    # CONSTRAINT 9: Correct number of teaching events for optional courses
-    print("Adding constraint 9: Teaching events count for optional...")
-    for o in O:
-        for s in S:
-            cons = xp.Sum(y_L[(o, d, h, s)] for d in D for h in H) == R_o_L * w_var[(o, s)]
-            p.addConstraint(cons)
-            constraint_count +=1
-            cons = xp.Sum(y_W[(o, d, h, s)] for d in D for h in H) == R_o_W * w_var[(o, s)]
-            p.addConstraint(cons)
-            constraint_count += 1
+                    late_obj += P[(q, d, late_hour, s, e)]
+                    for h in lunch_hours:
+                        lunch_obj += P[(q, d, h, s, e)]
+                    if d == wed_idx:
+                        for h in wednesday_hours:
+                            wed_obj += P[(q, d, h, s, e)]
 
-    print(constraint_count)
-    # CONSTRAINT 10: Collection credit requirements
-    print("Adding constraint 10: Collection credit requirements...")
-    for cl_id in SC_cl:
-        for q in Q:
-            # Check if this collection exists for this programme
-            if cl_id in programme_data[q].get('collections', {}):
-                collection_sum = xp.Sum(n_co[co] * a[(q, co)] 
-                                       for co in SC_cl[cl_id] 
-                                       if co in CO_q[q])
-                cons1 = collection_sum >= min_CL[cl_id]
-                
-                cons2 = collection_sum <= max_CL[cl_id]
-                
-                p.addConstraint(cons1)
-                constraint_count+= 1
-                print(cl_id,constraint_count,min_CL[cl_id])
-                
-                p.addConstraint(cons2)
-                constraint_count += 1
-                print(cl_id,constraint_count,max_CL[cl_id])
-                
-    print(constraint_count)
-    # CONSTRAINT 11: Regression group credit requirements
-    print("Adding constraint 11: Regression group credit requirements...")
-    for rg_id in SCL_cr:
-        for q in Q:
-            if rg_id in programme_data[q].get('regression_groups', {}):
-                reg_sum = xp.Sum(n_co[co] * a[(q, co)] 
-                                for cl_id in SCL_cr[rg_id]
-                                for co in SC_cl[cl_id]
-                                if co in CO_q[q])
-                cons1 = reg_sum >= min_CR[rg_id]
-                print(rg_id, constraint_count)
-                p.addConstraint(cons1)
-                constraint_count += 1
-                cons2 = reg_sum <= max_CR[rg_id]
-                print(rg_id, constraint_count)
-                p.addConstraint(cons2)
-                constraint_count += 1
-    print(constraint_count)
-    # CONSTRAINT 12: No compulsory course should collide with gateway courses
-    print("Adding constraint 12: No collisions with compulsory courses...")
-    clash_count = 0
-    
+    # Isolated objective
+    isolated_obj = 0
     for q in Q:
         for d in D:
-            for h in H:
+            for h in isolated_hours:
                 for s in S:
-                    # Get weeks for this semester
-                    if s == 1:
-                        weeks = E1
-                    elif s == 2:
-                        weeks = E2
-                    else:
-                        weeks = E
-                    
-                    # Ensure weeks is a list of integers
-                    if isinstance(weeks, list) and len(weeks) > 0:
-                        for e in weeks:  # e should be integer week number
-                            for k in K:
-                                # Sum over gateway courses at this time slot
-                                gateway_sum = xp.Sum(x_L[(g, d, h, s)] for g in G)
-                                
-                                # Sum over optional courses that are taken and have scheduled events
-                                optional_sum = xp.Sum(
-                                    a[(q, o)] * v.get((o, d, h, e, q, k), 0) 
-                                    for o in O 
-                                    if o in CO_OP_q.get(q, [])
-                                )
-                                
-                                # No clash constraint
-                                cons = gateway_sum + optional_sum <= 1
-                                p.addConstraint(cons)
-                                clash_count += 1
-    
-    constraint_count += clash_count
-    print(constraint_count)
-    # CONSTRAINT 13: Student course selection - compulsory courses must be taken
-    print("Adding constraint 13: Compulsory course selection...")
-    for q in Q:
-        for co in CO_CO_q[q]:
-            cons = a[(q, co)] == 1
-            p.addConstraint(cons)
-            constraint_count += 1
-    print(constraint_count)
-    # CONSTRAINT 15: Minimum credits outside Mathematics
-    print("Adding constraint 14: Minimum credits outside Maths...")
-    print('fegrg4t')
-    for q in Q:
-        outside_credits = xp.Sum(n_co[co] * a[(q, co)] 
-                                for co in CO_q[q] 
-                                if co not in G and co not in O)
-        cons = outside_credits >= n_q[q]
-        p.addConstraint(cons)
-        constraint_count += 1
-        print(q, constraint_count)
-        
-    print(constraint_count)   
-    print("Adding constraint 15: Gateway and compulsory clash avoiding")
-    def flatten_weeks(week_list):
-        """Flatten nested week lists into a single list of integers"""
-        if not isinstance(week_list, (list, tuple)):
-            return [week_list]
-        
-        flat_list = []
-        for item in week_list:
-            if isinstance(item, (list, tuple)):
-                flat_list.extend(flatten_weeks(item))
-            else:
-                flat_list.append(item)
-        return flat_list
-    
-    # Create flattened week lists
-    E_flat = flatten_weeks(E)
-    E1_flat = flatten_weeks(E1)
-    E2_flat = flatten_weeks(E2)
-    
-    # Now add the constraint with flattened weeks
-    clash_count = 0
-    
-    for q in Q:
-        for d in D:
-            for h in H:
-                for s in S:
-                    # Get weeks for this semester (now flattened)
-                    if s == 1:
-                        weeks = E1_flat
-                    elif s == 2:
-                        weeks = E2_flat
-                    else:
-                        weeks = E_flat
-                    
-                    # Iterate through each individual week
+                    weeks = E1 if s == 1 else E2
                     for e in weeks:
-                        # Ensure e is a single integer
-                        if isinstance(e, (list, tuple)):
-                            print(f"Warning: e is still a list: {e}, skipping")
-                            continue
-                        
-                        for k in K:
-                            # Sum over all gateway courses' lectures at this time slot
-                            gateway_sum = xp.Sum(x_L[(g, d, h, s)] for g in G)
-                            
-                            # Sum over all compulsory courses that have scheduled events at this time
-                            compulsory_terms = []
-                            for co in CO_CO_q[q]:
-                                # Create the key for v dictionary
-                                key = (co, d, h, e, q, k)
-                                # Get the value from v or 0 if not present
-                                val = v.get(key, 0)
-                                if val > 0:  # Only add if there's a scheduled event
-                                    compulsory_terms.append(a[(q, co)] * val)
-                            
-                            if compulsory_terms:  # Only add constraint if there are terms
-                                compulsory_sum = xp.Sum(compulsory_terms)
-                                # Ensure the total doesn't exceed 1
-                                cons = gateway_sum + compulsory_sum <= 1
-                                p.addConstraint(cons)
-                                clash_count += 1
-    
-    constraint_count += clash_count
-          
-    
-    
-    print(constraint_count)
-    print("Adding constraint 16: Minimum 40 credits outside Maths")
-    for q in Q:
-        # Sum credits from all courses in the curriculum that are NOT Maths courses
-        outside_maths_credits = xp.Sum(
-            n_co[co] * a[(q, co)] 
-            for co in CO_q[q]  # All courses in this programme
-            if co not in G and co not in O  # Exclude gateway and optional (Maths) courses
-        )
-        
-        # Require at least 40 credits
-        cons = outside_maths_credits >= 40
-        p.addConstraint(cons)
-        constraint_count += 1
-    print(constraint_count)
-    print("Adding constraint 17: Compulsory courses should be taken in each curriculum")
-    for q in Q:
-        for co in CO_CO_q[q]:  # Compulsory courses for this programme
-            cons = a[(q, co)] == 1
-            p.addConstraint(cons)
-            print(cons)
-            constraint_count += 1
-    print(constraint_count)
-    
-    # ==================== SOFT CONSTRAINTS ====================
-    
-    # SOFT CONSTRAINT 1: Late classes
-    max_h = max(H)
-    
+                        isolated_obj += is_isolated[(q, d, h, s, e)]
+
+    # Days objective
+    days_obj = 0
     for q in Q:
         for d in D:
             for s in S:
                 weeks = E1 if s == 1 else E2
                 for e in weeks:
-                    cons = P[(q,d,max_h,s,e)] <= late[(q,d,max_h,s,e)]
-                    p.addConstraint(cons)
-                    
-    # SOFT CONSTRAINT 2: Lunch hours
-    for q in Q:
-        for d in D:
-            for s in S:
-                weeks = E1 if s == 1 else E2
-                for e in weeks:
-                    for h in [3,4]:
-                        if h in H:
-                            cons = P[(q,d,h,s,e)] <= lunch[(q,d,h,s,e)]
-                            p.addConstraint(cons)
-                            
-    # SOFT CONSTRAINT 3: Isolated lectures
-    for q in Q:
-        for d in D:
-            for s in S:
-                weeks = E1 if s == 1 else E2
-                
-                for e in weeks:
-                    for h in H:
-                        if h in range(1,8) and (h-1 in H) and (h+1 in H):
-                            
-                            cons1 = isol[(q,d,h,s,e)] >= (
-                                P[(q,d,h,s,e)] 
-                                - P[(q,d,h+1,s,e)] 
-                                - P[(q,d,h-1,s,e)]
-                            )
-                            
-                            cons2 = isol[(q,d,h,s,e)] <= P[(q,d,h,s,e)]
-                            
-                            p.addConstraint(cons1)
-                            p.addConstraint(cons2)
-                            
-    # SOFT CONSTRAINT 4: Number of days
-    for q in Q:
-        for d in D:
-            for s in S:
-                weeks = E1 if s == 1 else E2
-                
-                for e in weeks:
-                    total = xp.Sum(P[(q,d,h,s,e)] for h in H)
-                    
-                    p.addConstraint(day_used[(q,d,s,e)] <= total)
-                    p.addConstraint(total <= len(H) * day_used[(q,d,s,e)])
-                    
-    # SOFT CONSTRAINT 5: Wednesday afternoon
-    #WED = 3
-    
-    #wed_penalty = []
-    
-    #for q in Q:
-        #for s in S:
-            #weeks = E1 if s == 1 else E2
-            
-            #for e in weeks:
-                #if WED in D:
-                    #for h in H:
-                        #wed_penalty.append(P[(q, WED, h, s, e)])
-                        
-    print("Setting objective...")
-    
-    #wed_expr = xp.Sum(wed_penalty) if len(wed_penalty) > 0 else 0
-    
-    lambda_late = 1
-    lambda_lunch = 1
-    lambda_isol = 1
-    lambda_days = 1
-    #lambda_wed = O
-    
-    objective = (
-        lambda_late * xp.Sum(late[q,d,h,s,e] for (q,d,h,s,e) in late) +
-        lambda_lunch * xp.Sum(lunch[q,d,h,s,e] for (q,d,h,s,e) in lunch) +
-        lambda_isol * xp.Sum(isol[q,d,h,s,e] for (q,d,h,s,e) in isol) +
-        lambda_days * xp.Sum(day_used[q,d,s,e] for (q,d,s,e) in day_used)# +
-        #lambda_wed * wed_expr
-    )
+                    days_obj += b[(q, d, s, e)]
+
+    objective = (scale_late * late_obj +
+                 scale_lunch * lunch_obj +
+                 scale_isolated * isolated_obj +
+                 scale_days * days_obj +
+                 scale_wed * wed_obj +
+                 lambda_travel * travel_obj +
+                 lambda_clash * clash_obj)
 
     p.setObjective(objective, sense=xp.minimize)
-    
-    return p
 
+    print(f"Total constraints added: {constraint_count}")
+
+    var_dicts = {
+        'xL': x_L, 'xW': x_W, 'xF': x_F,
+        'yL': y_L, 'yW': y_W,
+        'z': z, 'w': w_var,
+        'a': a,
+        'ind': ind, 'ch': ch,
+        'is_isolated': is_isolated, 'b': b
+    }
+    return p, constraint_list, var_dicts
 build_model_from_parameters(parameters)
 
 def solve_model(parameters):
-    model = build_model_from_parameters(parameters)
-    
+    from xpress import InterfaceError
+
+    model, constraint_list, var_dicts = build_model_from_parameters(parameters)
+    row_to_name = {r: name for r, name in constraint_list}
+
     model.setControl('outputlog', 1)
-    
-    print("\nSolving model...")
     model.solve()
-    
+
     status_string = model.getProbStatusString()
     print("\nSolution status:", status_string)
-    
-    # Check status using string
-    if ("optimal" in status_string) or ("Feasible" in status_string):
+
+    if "optimal" in status_string or "Feasible" in status_string:
         print("Feasible solution found!")
-        
-        sol = model.getSolution()
-        results = analyze_solution(model, parameters, sol)
-        
-        return model, results       
-    
+        # Retrieve only the variables we need
+        needed = ['z', 'w', 'a', 'ind', 'ch', 'is_isolated', 'b']
+        var_sol = {}
+        for name in needed:
+            if name in var_dicts:
+                var_sol[name] = {k: model.getSolution(v) for k, v in var_dicts[name].items()}
+        # Also retrieve xL for plotting (optional)
+        var_sol['xL'] = {k: model.getSolution(v) for k, v in var_dicts['xL'].items()}
+        results = analyze_solution(model, parameters, var_sol)
+        return model, results, var_sol
     else:
         print("Model is infeasible!")
-        
         print("\nComputing IIS...")
-        model.iisfirst(1)
-        model.iisnext()
-        
-        rows = model.getiisrows()
-        
-        print("\nConstraints causing infeasibility:")
-        for r in rows:
-            print(f"Row {r}: {model.getRowName(r)}")
-        
-        model.write("iis.ilp")
-        print("\nIIS written to iis.ilp")
-        
-        return model, None
 
-def analyze_solution(model, parameters, sol):
+        model.iisfirst(1)
+
+        rows = None
+        bounds = None
+
+        try:
+            rows = model.attributes.iisrows
+            bounds = model.attributes.iisbnds
+        except (InterfaceError, AttributeError):
+            pass
+
+        if rows is None:
+            try:
+                rows = model.getiisrows()
+                bounds = model.getiisbnds()
+            except AttributeError:
+                pass
+
+        if rows is None:
+            model.write("iis.ilp")
+            print("IIS written to 'iis.ilp'. Please open this file to inspect the constraints.")
+            return model, None, None
+
+        print(f"\nFound {len(rows)} constraints in the IIS.")
+        if rows:
+            print("Constraints in IIS:")
+            for row_idx in rows:
+                if row_idx in row_to_name:
+                    print(f"  - {row_to_name[row_idx]} (row {row_idx})")
+                else:
+                    print(f"  - Row {row_idx} (no name stored)")
+
+        print(f"\nFound {len(bounds)} variable bounds in the IIS.")
+        if bounds:
+            print("Variable bounds in IIS:")
+            for col_idx, lower, upper in bounds:
+                var_name = model.getVarName(col_idx)
+                print(f"  - {var_name}: lower={lower}, upper={upper}")
+
+        model.write("iis.ilp")
+        print("\nIIS written to 'iis.ilp'. You can open this file to see the exact constraints.")
+
+        return model, None, None
+
+def analyze_solution(model, parameters, var_sol):
     """
-    Analyze and display the solution
+    Analyze and display the solution using variable solution dictionaries.
     """
     results = {
-        'gateway_schedule': {},
-        'optional_schedule': {},
-        'course_selection': {}
+        'gateway_schedule': {},      # gateway -> semester(s)
+        'optional_schedule': {},     # optional -> semester(s)
+        'course_selection': {}       # curriculum -> list of chosen non‑maths courses
     }
-    
-    # Get all variables
-    vars_dict = {var.name: var for var in model.getVariable()}
-    
-    # Find which gateway courses run in which semester
-    for (g, s), var in parameters.get('z_vars', {}).items():
-        if sol[var] > 0.5:
+
+    # Gateway semester assignment (z)
+    for (g, s), val in var_sol['z'].items():
+        if val > 0.5:
             if g not in results['gateway_schedule']:
                 results['gateway_schedule'][g] = []
             results['gateway_schedule'][g].append(s)
-    
-    # Find which optional courses run in which semester
-    for (o, s), var in parameters.get('w_vars', {}).items():
-        if sol[var] > 0.5:
+
+    # Optional course semester assignment (w)
+    for (o, s), val in var_sol['w'].items():
+        if val > 0.5:
             if o not in results['optional_schedule']:
                 results['optional_schedule'][o] = []
             results['optional_schedule'][o].append(s)
-    
+
+    # Non‑maths course selection per curriculum (a)
+    for (q, co), val in var_sol['a'].items():
+        if val > 0.5:
+            if q not in results['course_selection']:
+                results['course_selection'][q] = []
+            results['course_selection'][q].append(co)
+
     return results
 
 def print_results(results):
-    """
-    Print the results
-    """
     if results is None:
         print("No results to display")
         return
-    
-    print("\n" + "="*50)
+
+    print("\n" + "=" * 50)
     print("SOLUTION RESULTS")
-    print("="*50)
-    
+    print("=" * 50)
+
     print("\nGateway Course Schedule:")
     for g, sems in results['gateway_schedule'].items():
         print(f"  {g}: Semester(s) {sems}")
-    
+
     print("\nOptional Course Schedule:")
     for o, sems in results['optional_schedule'].items():
         print(f"  {o}: Semester(s) {sems}")
-    
-    # Count how many gateway courses each programme can take
+
+    print("\nNon‑Maths Course Selections per Curriculum:")
+    for q, courses in results['course_selection'].items():
+        print(f"  {q}: {courses}")
+
     print("\nFeasibility Status:")
-    print("  Model is feasible - joint students can take all gateway courses")
-    print("  while meeting their mandatory course requirements.")
-    
+    print("  Model is feasible - all constraints satisfied.")
 # Assuming you have already run your extraction steps
 # parameters = extract_all_parameters(courses_df, programme_df)
 
-# Build and solve the model
-model, results = solve_model(parameters)
-
-# Print results
+model, results, var_sol = solve_model(parameters)
 print_results(results)
 
