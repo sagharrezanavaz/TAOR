@@ -469,7 +469,7 @@ def extract_all_parameters(courses_df, programme_df):
                 parameters['n_co'][course] = float(credit_value)
         else:
             parameters['n_co'][course] = 20.0
-    
+
     # Extract collection information
     for programme in programmes:
         prog_collections = programme_data[programme]['collections']
@@ -696,13 +696,13 @@ def build_model_from_parameters(parameters):
     n_q = parameters['n_q']
 
     # Soft constraint weights
-    lambda_travel = 0.01
+    lambda_travel = 0.0056
     lambda_clash = 0.1
-    lambda_late = 0.344
-    lambda_lunch = 0.113
-    lambda_isolated = 0.057
-    lambda_days = 0.133
-    lambda_wed = 0.029
+    lambda_late = 0.3435
+    lambda_lunch = 0.1155
+    lambda_isolated = 0.0578
+    lambda_days = 0.1469
+    lambda_wed = 0.0034
 
     # Travel time dictionary
     global travel_time_dict
@@ -1192,79 +1192,78 @@ def build_model_from_parameters(parameters):
     }
     return p, constraint_list, var_dicts
 build_model_from_parameters(parameters)
-
 def solve_model(parameters):
-    from xpress import InterfaceError
+        from xpress import InterfaceError
 
-    model, constraint_list, var_dicts = build_model_from_parameters(parameters)
-    row_to_name = {r: name for r, name in constraint_list}
+        model, constraint_list, var_dicts = build_model_from_parameters(parameters)
+        row_to_name = {r: name for r, name in constraint_list}
 
-    model.setControl('outputlog', 1)
-    model.setControl('miprelstop', 0.25)   # 20% gap
-    model.solve()
+        model.setControl('outputlog', 1)
+        model.setControl('miprelstop', 0.25)  # 25% gap
+        model.solve()
 
-    status_string = model.getProbStatusString()
-    print("\nSolution status:", status_string)
+        status_string = model.getProbStatusString()
+        print("\nSolution status:", status_string)
 
-    if "optimal" in status_string or "Feasible" in status_string:
-        print("Feasible solution found!")
-        # Retrieve only the variables we need
-        needed = ['z', 'w', 'a', 'ind', 'ch', 'is_isolated', 'b']
-        var_sol = {}
-        for name in needed:
-            if name in var_dicts:
-                var_sol[name] = {k: model.getSolution(v) for k, v in var_dicts[name].items()}
-        # Also retrieve xL for plotting (optional)
-        var_sol['xL'] = {k: model.getSolution(v) for k, v in var_dicts['xL'].items()}
-        results = analyze_solution(model, parameters, var_sol)
-        return model, results, var_sol
-    else:
-        print("Model is infeasible!")
-        print("\nComputing IIS...")
+        if "optimal" in status_string or "Feasible" in status_string:
+            print("Feasible solution found!")
+            # Retrieve only the variables needed for output and plotting
+            needed = ['z', 'w', 'a', 'xL', 'xW', 'xF', 'yL', 'yW']
+            var_sol = {}
+            for name in needed:
+                if name in var_dicts:
+                    var_sol[name] = {k: model.getSolution(v) for k, v in var_dicts[name].items()}
+            # Retrieve xL for plotting (optional)
+            var_sol['xL'] = {k: model.getSolution(v) for k, v in var_dicts['xL'].items()}
+            results = analyze_solution(model, parameters, var_sol)
+            return model, results, var_sol
+        else:
+            print("Model is infeasible!")
+            print("\nComputing IIS...")
 
-        model.iisfirst(1)
+            model.iisfirst(1)
 
-        rows = None
-        bounds = None
+            rows = None
+            bounds = None
 
-        try:
-            rows = model.attributes.iisrows
-            bounds = model.attributes.iisbnds
-        except (InterfaceError, AttributeError):
-            pass
-
-        if rows is None:
             try:
-                rows = model.getiisrows()
-                bounds = model.getiisbnds()
-            except AttributeError:
+                rows = model.attributes.iisrows
+                bounds = model.attributes.iisbnds
+            except (InterfaceError, AttributeError):
                 pass
 
-        if rows is None:
+            if rows is None:
+                try:
+                    rows = model.getiisrows()
+                    bounds = model.getiisbnds()
+                except AttributeError:
+                    pass
+
+            if rows is None:
+                model.write("iis.ilp")
+                print("IIS written to 'iis.ilp'. Please open this file to inspect the constraints.")
+                return model, None, None
+
+            print(f"\nFound {len(rows)} constraints in the IIS.")
+            if rows:
+                print("Constraints in IIS:")
+                for row_idx in rows:
+                    if row_idx in row_to_name:
+                        print(f"  - {row_to_name[row_idx]} (row {row_idx})")
+                    else:
+                        print(f"  - Row {row_idx} (no name stored)")
+
+            print(f"\nFound {len(bounds)} variable bounds in the IIS.")
+            if bounds:
+                print("Variable bounds in IIS:")
+                for col_idx, lower, upper in bounds:
+                    var_name = model.getVarName(col_idx)
+                    print(f"  - {var_name}: lower={lower}, upper={upper}")
+
             model.write("iis.ilp")
-            print("IIS written to 'iis.ilp'. Please open this file to inspect the constraints.")
+            print("\nIIS written to 'iis.ilp'. You can open this file to see the exact constraints.")
+
             return model, None, None
-
-        print(f"\nFound {len(rows)} constraints in the IIS.")
-        if rows:
-            print("Constraints in IIS:")
-            for row_idx in rows:
-                if row_idx in row_to_name:
-                    print(f"  - {row_to_name[row_idx]} (row {row_idx})")
-                else:
-                    print(f"  - Row {row_idx} (no name stored)")
-
-        print(f"\nFound {len(bounds)} variable bounds in the IIS.")
-        if bounds:
-            print("Variable bounds in IIS:")
-            for col_idx, lower, upper in bounds:
-                var_name = model.getVarName(col_idx)
-                print(f"  - {var_name}: lower={lower}, upper={upper}")
-
-        model.write("iis.ilp")
-        print("\nIIS written to 'iis.ilp'. You can open this file to see the exact constraints.")
-
-        return model, None, None
 
 def analyze_solution(model, parameters, var_sol):
     """
@@ -1328,3 +1327,358 @@ def print_results(results):
 model, results, var_sol = solve_model(parameters)
 print_results(results)
 
+
+def plot_curriculum_timetable(q, semester, var_sol, parameters,
+                              week=None,
+                              day_names=['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+                              hour_range=(9, 18),
+                              figsize=(12, 6),
+                              only_nonmaths_weeks=False):
+    """
+    Plot timetable for curriculum q using solution dictionaries.
+    - If week is None: heatmap of weeks occupied (color intensity = number of weeks).
+    - If only_nonmaths_weeks=True: restricts to weeks where non‑maths courses occur.
+    - If a specific week is given: binary occupancy with labels.
+    """
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    # Unpack data
+    G = parameters['G']
+    if q not in parameters['programme_data']:
+        print(f"Curriculum '{q}' not found in programme_data.")
+        return
+    CO_q = parameters['programme_data'][q]['all_courses']
+    v = parameters['v']
+    D = parameters['D']
+    H = parameters['H']
+    E1 = parameters['E1']
+    E2 = parameters['E2']
+    K = parameters['K']
+
+    # Solution dictionaries
+    xL_sol = var_sol['xL']
+    a_sol = var_sol['a']
+
+    # All weeks in the semester
+    all_weeks = E1 if semester == 1 else E2
+
+    # Determine which weeks to include
+    if only_nonmaths_weeks:
+        weeks_with_nonmaths = set()
+        # For each week, check if any non‑maths course has an event at any day/hour
+        for e in all_weeks:
+            found = False
+            for d in D:
+                for h in H:
+                    for co in CO_q:
+                        if co not in G and co not in parameters['O']:
+                            if a_sol.get((q, co), 0) > 0.5:
+                                for k in K:
+                                    if v.get((co, d, h, e, q, k), 0) > 0:
+                                        found = True
+                                        break
+                            if found:
+                                break
+                        if found:
+                            break
+                    if found:
+                        break
+                if found:
+                    break
+            if found:
+                weeks_with_nonmaths.add(e)
+        weeks = sorted(weeks_with_nonmaths)
+        if not weeks:
+            print(f"No weeks with non‑maths events for {q} in semester {semester}.")
+            return
+        print(f"Weeks with non‑maths events: {weeks}")
+    else:
+        weeks = all_weeks
+
+    # Map days to indices
+    day_map = {d: i for i, d in enumerate(day_names)}
+    day_index_to_name = {i+1: day_names[i] for i in range(len(day_names))}
+
+    hours = list(range(hour_range[0], hour_range[1]+1))
+    n_hours = len(hours)
+    n_days = len(day_names)
+
+    # Prepare occupancy grid
+    if week is None:
+        occupancy = np.zeros((n_days, n_hours))
+        sample_course = [[None for _ in hours] for _ in day_names]
+    else:
+        occupancy = np.zeros((n_days, n_hours), dtype=bool)
+        labels = [[[] for _ in hours] for _ in day_names]
+
+    # Loop over days, hours, weeks
+    for d in D:
+        day_name = day_index_to_name.get(d)
+        if day_name is None:
+            continue
+        day_idx = day_map[day_name]
+        for h in hours:
+            if h not in H:
+                continue
+            hour_idx = h - hour_range[0]
+            if hour_idx < 0 or hour_idx >= n_hours:
+                continue
+            for e in weeks:
+                # Gateway events
+                gateway = any(xL_sol.get((g, d, h, semester), 0) > 0.5 for g in G)
+
+                # Non‑maths events
+                nonmaths = False
+                course_found = None
+                for co in CO_q:
+                    if co not in G and co not in parameters['O']:
+                        if a_sol.get((q, co), 0) > 0.5:
+                            for k in K:
+                                if v.get((co, d, h, e, q, k), 0) > 0:
+                                    nonmaths = True
+                                    course_found = co
+                                    break
+                    if nonmaths:
+                        break
+
+                if gateway or nonmaths:
+                    if week is None:
+                        occupancy[day_idx, hour_idx] += 1
+                        if nonmaths and course_found:
+                            sample_course[day_idx][hour_idx] = course_found
+                        elif gateway and sample_course[day_idx][hour_idx] is None:
+                            sample_course[day_idx][hour_idx] = "Gateway"
+                    else:
+                        if e == week:
+                            occupancy[day_idx, hour_idx] = True
+                            label_parts = []
+                            if gateway:
+                                label_parts.append("Gateway")
+                            if nonmaths:
+                                label_parts.append("Non-Maths")
+                            labels[day_idx][hour_idx].append("\n".join(label_parts))
+
+    # Plot
+    fig, ax = plt.subplots(figsize=figsize)
+    if week is None:
+        im = ax.imshow(occupancy, cmap='YlOrRd', aspect='auto',
+                       vmin=0, vmax=occupancy.max() if occupancy.max() > 0 else 1)
+        cbar = plt.colorbar(im, ax=ax)
+        cbar.set_label('Number of weeks occupied')
+        # Annotate cells with course name and count
+        for i in range(n_days):
+            for j in range(n_hours):
+                if occupancy[i, j] > 0:
+                    count = int(occupancy[i, j])
+                    course = sample_course[i][j] or ""
+                    # Shorten long course names
+                    if len(course) > 12:
+                        course = course[:9] + "..."
+                    text = f"{course}\n({count} wk)" if course else f"{count} wk"
+                    ax.text(j, i, text, ha='center', va='center',
+                            fontsize=8, color='black', weight='bold')
+    else:
+        im = ax.imshow(occupancy, cmap='Blues', aspect='auto', vmin=0, vmax=1)
+        for i in range(n_days):
+            for j in range(n_hours):
+                if occupancy[i, j]:
+                    text = '\n'.join(labels[i][j])
+                    ax.text(j, i, text, ha='center', va='center',
+                            fontsize=8, color='black', weight='bold')
+
+    ax.set_xticks(range(n_hours))
+    ax.set_xticklabels([f'{h}:00' for h in hours])
+    ax.set_yticks(range(n_days))
+    ax.set_yticklabels(day_names)
+    ax.set_xlabel('Hour')
+    ax.set_ylabel('Day')
+    title = f"Timetable for {q} – Semester {semester}"
+    if week:
+        title += f", Week {week}"
+    else:
+        title += " (all weeks combined)"
+        if only_nonmaths_weeks:
+            title += " – only weeks with non‑maths courses"
+    ax.set_title(title)
+    ax.set_xticks(np.arange(-0.5, n_hours, 1), minor=True)
+    ax.set_yticks(np.arange(-0.5, n_days, 1), minor=True)
+    ax.grid(which='minor', color='gray', linestyle='-', linewidth=0.5)
+    plt.tight_layout()
+    plt.show()
+# Heatmap for weeks with non‑maths events
+# plot_curriculum_timetable('Mathematics and Business BSc (Hons)', semester=1,
+#                           var_sol=var_sol, parameters=parameters)
+# plot_curriculum_timetable('Mathematics and Business BSc (Hons)', semester=2,
+#                           var_sol=var_sol, parameters=parameters)
+# # Specific week (week 10) if it has non‑maths
+# plot_curriculum_timetable('Mathematics and Business BSc (Hons)', semester=1, week=10,
+#                           var_sol=var_sol, parameters=parameters, only_nonmaths_weeks=True)
+    # After solving, var_sol contains the solution
+for q in parameters['Q']:
+        for sem in [1, 2]:
+            # Heatmap for all weeks
+            plot_curriculum_timetable(q, sem, var_sol, parameters)
+            # Optionally, a specific week (e.g., week 10)
+            # plot_curriculum_timetable(q, sem, var_sol, parameters, week=10)
+def plot_maths_timetable(semester, var_sol, parameters,
+                         week=None,
+                         day_names=['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+                         hour_range=(9, 18),
+                         figsize=(12, 6)):
+    """
+    Plot timetable for the mathematics curriculum (gateway + optional maths).
+    Uses xL, xW, xF, yL, yW solution dictionaries.
+    """
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    # Unpack needed data
+    G = parameters['G']
+    O = parameters['O']
+    D = parameters['D']
+    H = parameters['H']
+    E1 = parameters['E1']
+    E2 = parameters['E2']
+    W = parameters['W']          # week parity set [1,2]
+
+    # Get solution dictionaries
+    xL_sol = var_sol.get('xL', {})
+    xW_sol = var_sol.get('xW', {})
+    xF_sol = var_sol.get('xF', {})
+    yL_sol = var_sol.get('yL', {})
+    yW_sol = var_sol.get('yW', {})
+
+    # All weeks in the semester
+    all_weeks = E1 if semester == 1 else E2
+
+    # Determine which weeks to include (if week is given, only that week)
+    if week is not None:
+        weeks = [week] if week in all_weeks else []
+        if not weeks:
+            print(f"Week {week} not in semester {semester} weeks.")
+            return
+    else:
+        weeks = all_weeks
+
+    # Map day numbers to indices
+    day_map = {d: i for i, d in enumerate(day_names)}
+    day_index_to_name = {i+1: day_names[i] for i in range(len(day_names))}
+
+    hours = list(range(hour_range[0], hour_range[1]+1))
+    n_hours = len(hours)
+    n_days = len(day_names)
+
+    # Prepare occupancy grid
+    if week is None:
+        occupancy = np.zeros((n_days, n_hours))
+        sample_course = [[None for _ in hours] for _ in day_names]
+    else:
+        occupancy = np.zeros((n_days, n_hours), dtype=bool)
+        labels = [[[] for _ in hours] for _ in day_names]
+
+    # Loop over days, hours, weeks
+    for d in D:
+        day_name = day_index_to_name.get(d)
+        if day_name is None:
+            continue
+        day_idx = day_map[day_name]
+        for h in hours:
+            if h not in H:
+                continue
+            hour_idx = h - hour_range[0]
+            if hour_idx < 0 or hour_idx >= n_hours:
+                continue
+            for e in weeks:
+                # Determine week parity (1=odd, 2=even)
+                parity = 1 if e % 2 == 1 else 2
+
+                # Gateway events
+                gate_lect = any(xL_sol.get((g, d, h, semester), 0) > 0.5 for g in G)
+                gate_work = any(xW_sol.get((g, d, h, semester), 0) > 0.5 for g in G)
+                gate_fort = any(xF_sol.get((g, d, h, semester, parity), 0) > 0.5 for g in G)
+
+                gateway = gate_lect or gate_work or gate_fort
+
+                # Optional maths events
+                opt_lect = any(yL_sol.get((o, d, h, semester), 0) > 0.5 for o in O)
+                opt_work = any(yW_sol.get((o, d, h, semester), 0) > 0.5 for o in O)
+
+                optional = opt_lect or opt_work
+
+                if gateway or optional:
+                    if week is None:
+                        occupancy[day_idx, hour_idx] += 1
+                        # Store representative course name (first non‑null)
+                        if optional:
+                            # find first optional course
+                            for o in O:
+                                if yL_sol.get((o, d, h, semester), 0) > 0.5 or yW_sol.get((o, d, h, semester), 0) > 0.5:
+                                    sample_course[day_idx][hour_idx] = f"O{o}"
+                                    break
+                        elif gateway:
+                            for g in G:
+                                if xL_sol.get((g, d, h, semester), 0) > 0.5:
+                                    sample_course[day_idx][hour_idx] = f"G{g}L"
+                                    break
+                                if xW_sol.get((g, d, h, semester), 0) > 0.5:
+                                    sample_course[day_idx][hour_idx] = f"G{g}W"
+                                    break
+                                if xF_sol.get((g, d, h, semester, parity), 0) > 0.5:
+                                    sample_course[day_idx][hour_idx] = f"G{g}F"
+                                    break
+                    else:
+                        if e == week:
+                            occupancy[day_idx, hour_idx] = True
+                            label_parts = []
+                            if gateway:
+                                label_parts.append("Gateway")
+                            if optional:
+                                label_parts.append("Optional")
+                            labels[day_idx][hour_idx].append("\n".join(label_parts))
+
+    # Plot
+    fig, ax = plt.subplots(figsize=figsize)
+    if week is None:
+        im = ax.imshow(occupancy, cmap='YlOrRd', aspect='auto',
+                       vmin=0, vmax=occupancy.max() if occupancy.max() > 0 else 1)
+        cbar = plt.colorbar(im, ax=ax)
+        cbar.set_label('Number of weeks occupied')
+        # Annotate cells with course name and count
+        for i in range(n_days):
+            for j in range(n_hours):
+                if occupancy[i, j] > 0:
+                    count = int(occupancy[i, j])
+                    course = sample_course[i][j] or ""
+                    if len(course) > 12:
+                        course = course[:9] + "..."
+                    text = f"{course}\n({count} wk)" if course else f"{count} wk"
+                    ax.text(j, i, text, ha='center', va='center',
+                            fontsize=8, color='black', weight='bold')
+    else:
+        im = ax.imshow(occupancy, cmap='Blues', aspect='auto', vmin=0, vmax=1)
+        for i in range(n_days):
+            for j in range(n_hours):
+                if occupancy[i, j]:
+                    text = '\n'.join(labels[i][j])
+                    ax.text(j, i, text, ha='center', va='center',
+                            fontsize=8, color='black', weight='bold')
+
+    ax.set_xticks(range(n_hours))
+    ax.set_xticklabels([f'{h}:00' for h in hours])
+    ax.set_yticks(range(n_days))
+    ax.set_yticklabels(day_names)
+    ax.set_xlabel('Hour')
+    ax.set_ylabel('Day')
+    title = f"Mathematics Timetable – Semester {semester}"
+    if week:
+        title += f", Week {week}"
+    else:
+        title += " (all weeks combined)"
+    ax.set_title(title)
+    ax.set_xticks(np.arange(-0.5, n_hours, 1), minor=True)
+    ax.set_yticks(np.arange(-0.5, n_days, 1), minor=True)
+    ax.grid(which='minor', color='gray', linestyle='-', linewidth=0.5)
+    plt.tight_layout()
+    plt.show()
+plot_maths_timetable(semester=1, var_sol=var_sol, parameters=parameters)
