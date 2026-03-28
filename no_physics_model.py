@@ -1060,14 +1060,17 @@ def build_model_from_parameters(parameters):
     N_isol  = len(S) * len(D) * 7 * weeks_per_sem      # 2 * 5 * 7 * 26 = 1820
     N_days  = len(S) * len(D) * weeks_per_sem          # 260
     N_wed   = len(S) * 5 * weeks_per_sem               # 2 * 5 * 26 = 260
-
+    N_clash= len(S) * weeks_per_sem * 3*2
+    max_travel_weekly = 660  # or compute from data
+    max_travel_sem = max_travel_weekly * len(E1) * len(S)
+    scale_travel = lambda_travel / max_travel_sem
     # Scale raw expressions by lambda / N
     scale_late     = lambda_late / N_late
     scale_lunch    = lambda_lunch / N_lunch
     scale_isolated = lambda_isolated / N_isol
     scale_days     = lambda_days / N_days
     scale_wed      = lambda_wed / N_wed
-
+    scale_clash=lambda_clash / N_clash
     # Travel time
     travel_obj = 0
     # Term 1: Maths → non‑maths (ind with co at h+1)
@@ -1172,8 +1175,8 @@ def build_model_from_parameters(parameters):
                  scale_isolated * isolated_obj +
                  scale_days * days_obj +
                  scale_wed * wed_obj +
-                 lambda_travel * travel_obj +
-                 lambda_clash * clash_obj)
+                 scale_travel * travel_obj +
+                 scale_clash * clash_obj)
 
     p.setObjective(objective, sense=xp.minimize)
 
@@ -1197,6 +1200,7 @@ def solve_model(parameters):
     row_to_name = {r: name for r, name in constraint_list}
 
     model.setControl('outputlog', 1)
+    model.setControl('miprelstop', 0.25)   # 20% gap
     model.solve()
 
     status_string = model.getProbStatusString()
