@@ -1,0 +1,223 @@
+Pathway Model with SC: Solver Output
+
+Creating decision variables...
+Adding hard constraints...
+Building objective...
+Total constraints added: 316429
+FICO Xpress v9.8.1, Hyper, solve started 11:21:56, Mar 29, 2026
+Heap usage: 119MB (peak 119MB, 94KB system)
+Minimizing MIQP noname using up to 16 threads and up to 15GB memory, with these control settings:
+OUTPUTLOG = 1
+MIPRELSTOP = .09
+NLPPOSTSOLVE = 1
+XSLP_DELETIONCONTROL = 0
+XSLP_OBJSENSE = 1
+Original problem has:
+    316429 rows        84018 cols       955510 elements     84018 entities
+      1408 qobjelem
+Presolved problem has:
+    238952 rows        64862 cols       631229 elements     64386 entities
+LP relaxation tightened
+Presolve finished in 54 seconds
+Heap usage: 201MB (peak 291MB, 94KB system)
+
+Coefficient range                    original                 solved        
+  Coefficients   [min,max] : [ 1.00e+00,  4.00e+01] / [ 1.25e-01,  1.75e+00]
+  RHS and bounds [min,max] : [ 1.00e+00,  1.20e+02] / [ 2.50e-01,  7.00e+00]
+  Objective      [min,max] : [ 7.58e-06,  4.10e-02] / [ 7.58e-06,  3.67e-01]
+  Quadratic      [min,max] : [ 1.83e-02,  3.67e-01] / [      0.0,       0.0]
+Autoscaling applied standard scaling
+
+Will try to keep branch and bound tree memory usage below 6.7GB
+ *** Solution found:      .746151   Time:  55.50    Heuristic: e ***
+ *** Solution found:      .642705   Time:  55.80    Heuristic: h ***
+Starting concurrent solve with dual (1 thread) and barrier (15 threads)
+
+              Concurrent-Solve,  58s
+            Dual                      Barrier      
+    objective   dual inf        p.obj.     d.obj.  
+ D   .1038050   .0000000 |  B  2647.3677 -199.13802
+ D   .1075320   .0000000 |  B  60.376376 -375.33288
+ D   .1075305   .0000000 |  B   .2488192 -3.7202888
+ D   .1076139   .0000000 |  B   .1387654  -.0154796
+ D   .1081368   .0000000 |  B   .1191348   .0502730
+------- optimal -------- | ----- interrupted ------
+Concurrent statistics:
+           Dual: 1867 simplex iterations, 3.22s
+        Barrier: 19 barrier and 0 simplex iterations, 6.47s
+            Barrier used 15 threads 8 cores
+            Barrier used AVX2 support
+Optimal solution found
+ 
+   Its         Obj Value      S   Ninf  Nneg        Sum Inf  Time
+  1867           .108138      P      0     0        .000000    62
+Dual solved problem
+  1867 simplex iterations in 6.54 seconds at time 62
+
+Final objective                       : 1.081380952380952e-01
+  Max primal violation      (abs/rel) : 2.220e-16 / 2.220e-16
+  Max dual violation        (abs/rel) : 4.337e-19 / 4.337e-19
+  Max complementarity viol. (abs/rel) :       0.0 /       0.0
+
+Starting root cutting & heuristics
+Deterministic mode with up to 2 additional threads
+ 
+ Its Type    BestSoln    BestBound   Sols    Add    Del     Gap     GInf   Time
+a             .535473      .108138      3                 79.81%       0     64
+R             .517140      .116471      4                 77.48%       0     76
+   1  K       .517140      .116471      4    619      0   77.48%     350     76
+P             .498448      .116471      5                 76.63%       0     76
+P             .495761      .116471      6                 76.51%       0     76
+   2  K       .495761      .116471      6   1090    350   76.51%     329     90
+   3  K       .495761      .124664      6   1213    779   74.85%     337    106
+P             .481647      .124664      7                 74.12%       0    106
+P             .475997      .124664      8                 73.81%       0    106
+   4  K       .475997      .127546      8   3196    807   73.20%     490    119
+P             .462601      .127546      9                 72.43%       0    119
+   5  K       .462601      .130885      9   3140   1330   71.71%     542    133
+P             .459506      .130885     10                 71.52%       0    133
+P             .453291      .130885     11                 71.13%       0    133
+   6  K       .453291      .139713     11   4189   3787   69.18%     639    162
+P             .453113      .139713     12                 69.17%       0    162
+P             .447413      .139713     13                 68.77%       0    162
+   7  K       .447413      .141102     13   4270   2278   68.46%     616    193
+   8  K       .447413      .142188     13   3960   2335   68.22%     563    238
+   9  K       .447413      .144553     13   7305   4801   67.69%     778    312
+  10  K       .447413      .152013     13   7783   6494   66.02%     960    362
+  11  K       .447413      .158653     13   6331   7084   64.54%    1099    402
+  12  K       .447413      .163226     13   5710   5529   63.52%    1111    459
+  13  K       .447413      .167803     13   5637   2997   62.49%     948    524
+  14  K       .447413      .170987     13   6819   6814   61.78%    1240    559
+g             .409495      .172767     14                 57.81%       0    595
+  15  K       .409495      .172767     14   6156   6161   57.81%    1334    595
+  16  K       .409495      .175349     14   5410   5285   57.18%    1430    665
+a             .392952      .177105     15                 54.93%       0    702
+  17  K       .392952      .177105     15   6094   5920   54.93%    1596    702
+  18  K       .392952      .181418     15   5343   3624   53.83%    1270    739
+  19  K       .392952      .183209     15   3748   5470   53.38%    1361    772
+g             .374356      .184452     16                 50.73%       0    802
+  20  K       .374356      .184452     16   4534   2900   50.73%    1175    802
+  21  K       .374356      .185244     16   4598   3421   50.52%    1250    831
+  22  K       .374356      .186675     16   4293   3853   50.13%    1284    854
+  23  K       .374356      .187768     16   2899   2526   49.84%     885    874
+  24  K       .374356      .187946     16   2527   2796   49.79%     999    914
+  25  K       .374356      .187959     16   2632  19805   49.79%     730    946
+  26  G       .374356      .188239     16    560      0   49.72%    1204    962
+  27  G       .374356      .188627     16    877    871   49.61%    1268    977
+  28  G       .374356      .188627     16    793   1725   49.61%     860   1000
+Heuristic search 'R' started
+R             .363150      .188627     17                 48.06%       0   1004
+R             .360463      .188627     18                 47.67%       0   1004
+Heuristic search 'R' stopped
+ 
+Cuts in the matrix         : 1984
+Cut elements in the matrix : 17874
+Will try to keep branch and bound tree memory usage below 5.5GB
+
+Starting tree search.
+Deterministic mode with up to 16 running threads and up to 32 tasks.
+Heap usage: 770MB (peak 1172MB, 68MB system)
+ 
+    Node     BestSoln    BestBound   Sols Active  Depth     Gap     GInf   Time
+       1      .360463      .188627     18      2      1   47.67%     510   1026
+       2      .360463      .188627     18      2      3   47.67%     743   1082
+Will try to keep branch and bound tree memory usage below 3.7GB
+       3      .360463      .188627     18      3      3   47.67%     753   1114
+       4      .360463      .188627     18      3      4   47.67%     681   1118
+       5      .360463      .188627     18      4      4   47.67%     683   1127
+Will try to keep branch and bound tree memory usage below 3.1GB
+Will try to keep branch and bound tree memory usage below 2.5GB
+       6      .360463      .188627     18      6      5   47.67%    1097   1177
+Will try to keep branch and bound tree memory usage below 1.6GB
+       7      .360463      .188627     18      7      4   47.67%     766   1185
+       8      .360463      .188627     18      7      5   47.67%     750   1192
+       9      .360463      .188627     18      7      5   47.67%     713   1192
+      10      .360463      .188627     18      7      5   47.67%     755   1201
+Will try to keep branch and bound tree memory usage below 1.0GB
+Will try to keep branch and bound tree memory usage below 486MB
+Will try to keep branch and bound tree memory usage below 454MB
+Will try to keep branch and bound tree memory usage below 394MB
+Will try to keep branch and bound tree memory usage below 347MB
+Will try to keep branch and bound tree memory usage below 367MB
+Will try to keep branch and bound tree memory usage below 345MB
+Will try to keep branch and bound tree memory usage below 231MB
+      20      .360463      .188627     18     18      6   47.67%    1331   1310
+Will try to keep branch and bound tree memory usage below 248MB
+Will try to keep branch and bound tree memory usage below 195MB
+Will try to keep branch and bound tree memory usage below 210MB
+Will try to keep branch and bound tree memory usage below 229MB
+      30      .360463      .188627     18     26      7   47.67%    1157   1387
+Will try to keep branch and bound tree memory usage below 176MB
+Will try to keep branch and bound tree memory usage below 135MB
+Will try to keep branch and bound tree memory usage below 171MB
+Will try to keep branch and bound tree memory usage below 188MB
+      40      .360463      .188627     18     33      7   47.67%     588   1439
+Will try to keep branch and bound tree memory usage below 198MB
+Will try to keep branch and bound tree memory usage below 171MB
+Will try to keep branch and bound tree memory usage below 216MB
+Will try to keep branch and bound tree memory usage below 241MB
+      50      .360463      .188627     18     43      7   47.67%    1120   1481
+Will try to keep branch and bound tree memory usage below 258MB
+      60      .360463      .188627     18     52     13   47.67%     806   1517
+a     65      .345003      .188627     19     58      8   45.33%       0   1535
+      70      .345003      .188627     19     61     10   45.33%     361   1544
+Will try to keep branch and bound tree memory usage below 142MB
+      80      .345003      .188627     19     70     16   45.33%     740   1570
+Will try to keep branch and bound tree memory usage below 64MB
+      90      .345003      .188627     19     77     14   45.33%      47   1591
+Elapsed time (sec): 1594, estimated tree completion: 0.00000
+Heap usage: 4578MB (peak 4578MB, 68MB system)
+B&B tree size: 13MB total
+ 
+    Node     BestSoln    BestBound   Sols Active  Depth     Gap     GInf   Time
+a     91      .189427      .188627     20     78     14    0.42%       0   1594
+STOPPING - MIPRELSTOP target reached (MIPRELSTOP=0.09  gap=0.00422132).
+Will try to keep branch and bound tree memory usage below 229MB
+STOPPING - MIPRELSTOP target reached (MIPRELSTOP=0.09  gap=0.00422132).
+ *** Search completed ***
+Uncrunching matrix
+Final MIP objective                   : 1.894270779221675e-01
+Final MIP bound                       : 1.886274458874476e-01
+  Solution time / primaldual integral :   1599.45s/ 57.471815%
+  Work / work units per second        :   1282.36 /      0.80
+  Number of solutions found / nodes   :        20 /        91
+  Max primal violation      (abs/rel) : 9.431e-12 / 8.163e-12
+  Max integer violation     (abs    ) : 8.163e-12
+
+Solution status: mip_optimal
+Feasible solution found!
+
+==================================================
+SOLUTION RESULTS
+==================================================
+
+Gateway Course Schedule:
+  G1: Semester(s) [1]
+  G2: Semester(s) [2]
+  G3: Semester(s) [2]
+  G4: Semester(s) [2]
+  G5: Semester(s) [2]
+  G6: Semester(s) [1]
+  G7: Semester(s) [1]
+  G8: Semester(s) [1]
+
+Optional Course Schedule:
+  O1: Semester(s) [1]
+  O2: Semester(s) [2]
+  O3: Semester(s) [1]
+  O4: Semester(s) [2]
+
+Non‑Maths Course Selections per Curriculum:
+  Economics and Mathematics (MA Hons): ['Topics in Macroeconomics', 'Topics in Microeconomics', 'Essentials of Econometrics']
+  Philosophy and Mathematics (MA Hons): ['Normative theory', 'Moral Philosophy']
+  Computer Science and Mathematics (BSc Hons): ['System Design Project', 'Informatics Large Practical', 'Speech Processing (Hons)', 'Software Design and Modelling', 'Computer Security', 'Modelling Concurrent Systems (Level 10)', 'Professional Issues (Level 10)']
+  Mathematics and Business BSc (Hons): ['Strategic Management', 'Operations Strategy']
+
+Gateway Pathway Choices per Curriculum (gateway, semester):
+  Philosophy and Mathematics (MA Hons): [('G1', 1), ('G3', 2), ('G5', 2), ('G6', 1)]
+  Computer Science and Mathematics (BSc Hons): [('G1', 1), ('G2', 2), ('G4', 2), ('G6', 1)]
+  Mathematics and Business BSc (Hons): [('G1', 1), ('G3', 2), ('G5', 2), ('G6', 1)]
+  Economics and Mathematics (MA Hons): [('G3', 2), ('G5', 2), ('G7', 1), ('G8', 1)]
+
+Feasibility Status:
+  Model is feasible - all constraints satisfied.
