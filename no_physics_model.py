@@ -1274,7 +1274,7 @@ def solve_model(parameters):
         row_to_name = {r: name for r, name in constraint_list}
 
         model.setControl('outputlog', 1)
-        model.setControl('miprelstop', 0.85)  # 25% gap
+        model.setControl('miprelstop', 0.25)  # 25% gap
         model.solve()
 
         status_string = model.getProbStatusString()
@@ -1401,8 +1401,496 @@ def print_results(results):
 
 model, results, var_sol = solve_model(parameters)
 print_results(results)
+def improve_nonmaths_selection(parameters, model, var_sol, time_limit=300):
+    """
+    Decomposition heuristic for non-maths course selection.
+    Fixes gateway + optional maths timetable and re-optimises only 'a' variables.
+    """
+    import xpress as xp
+    from xpress import problem
+
+    G = parameters['G']
+    O = parameters['O']
+    S = parameters['S']
+    D = parameters['D']
+    H = parameters['H']
+    Q = parameters['Q']
+    E1 = parameters['E1']
+    E2 = parameters['E2']
+    K = parameters['K']
+    v = parameters['v']
+    programme_data = parameters['programme_data']
+    CO_CO_q = {prog: programme_data[prog]['compulsory_courses'] for prog in Q}
+    CO_q = {prog: programme_data[prog]['all_courses'] for prog in Q}
+    SC_cl = parameters['SC_cl']
+    SCL_cr = parameters['SCL_cr']
+    min_CL = parameters['min_CL']
+    max_CL = parameters['max_CL']
+    min_CR = parameters['min_CR']
+    max_CR = parameters['max_CR']
+    n_co = parameters['n_co']
+    n_q = parameters['n_q']
+
+    # Soft weights - must match build_model_from_parameters
+    lambda_travel = 0.01
+    lambda_clash = 0.1
+    lambda_late = 0.344249
+    lambda_lunch = 0.112523
+    lambda_isolated = 0.057430
+    lambda_days = 0.133207
+    lambda_wed = 0.028978
+
+    weeks_per_sem = len(E1)
+    N_late = len(S) * len(D) * weeks_per_sem
+    N_lunch = len(S) * len(D) * 2 * weeks_per_sem
+    N_isol = len(S) * len(D) * 7 * weeks_per_sem
+    N_days = len(S) * len(D) * weeks_per_sem
+    N_wed = len(S) * 5 * weeks_per_sem
+    N_clash = len(S) * weeks_per_sem * 3 * 2
+    max_travel_sem = 660 * weeks_per_sem * len(S)
+
+    scale_late = lambda_late / N_late
+    scale_lunch = lambda_lunch / N_lunch
+    scale_isolated = lambda_isolated / N_isol
+    scale_days = lambda_days / N_days
+    scale_wed = lambda_wed / N_wed
+    scale_travel = lambda_travel / max_travel_sem
+    scale_clash = lambda_clash / N_clash
+
+    # Current solution
+    xL_sol = var_sol.get('xL', {})
+
+    yL_sol = var_sol.get('yL', {})
+    yW_sol = var_sol.get('yW', {})
+    a_sol = var_sol.get('a', {})
+
+    isolated_hours = list(range(10, 17))
+    lunch_hours = [12, 13]
+    wed_idx = 3
+    wednesday_hours = list(range(13, 18))
+
+    for q in Q:
+        print(f"Improving non-maths selection for: {q}")
+
+        sub = problem(f"Sub_{q}")
+
+        # === Variables ===
+        a_vars = {co: xp.var(vartype=xp.binary, name=f"a_{q}_{co}") for co in CO_q[q]}
+        sub.addVariable(list(a_vars.values()))
+
+        # Linearisation ch for non-maths <-> non-maths travel
+        nonmath_courses = [co for co in CO_q[q] if co not in G and co not in O]
+        ch_vars = {}
+        for i, co1 in enumerate(nonmath_courses):
+            for co2 in nonmath_courses[i+1:]:
+                ch_vars[(co1, co2)] = xp.var(vartype=xp.binary, name=f"ch_{q}_{co1}_{co2}")
+        sub.addVariable(list(ch_vars.values()))
+
+        for co1, co2 in ch_vars:
+            sub.addConstraint(ch_vars[(co1, co2)] <= a_vars[co1])
+            sub.addConstraint(ch_vars[(co1, co2)] <= a_vars[co2])
+            sub.addConstraint(ch_vars[(co1, co2)] >= a_vars[co1] + a_vars[co2] - 1)
+
+        # === Hard Constraints ===
+        # 1. Compulsory
+        for co in CO_CO_q.get(q, []):
+            sub.addConstraint(a_vars[co] == 1)
+
+        # 2. Collections
+        for cl_id, courses_in_cl in SC_cl.items():
+            if cl_id in programme_data[q].get('collections', {}):
+                coll_sum = xp.Sum(n_co.get(co, 20) * a_vars[co]
+                                  for co in courses_in_cl if co in a_vars)
+                sub.addConstraint(coll_sum >= min_CL.get(cl_id, 0))
+                sub.addConstraint(coll_sum <= max_CL.get(cl_id, 999))
+
+        # 3. Regression groups
+        for rg_id, cl_list in SCL_cr.items():
+            if rg_id in programme_data[q].get('regression_groups', {}):
+                reg_sum = xp.Sum(n_co.get(co, 20) * a_vars[co]
+                                 for cl_id in cl_list
+                                 for co in SC_cl.get(cl_id, []) if co in a_vars)
+                sub.addConstraint(reg_sum >= min_CR.get(rg_id, 0))
+                sub.addConstraint(reg_sum <= max_CR.get(rg_id, 999))
+
+        # 4. Minimum outside credits
+        outside = xp.Sum(n_co.get(co, 20) * a_vars[co]
+                         for co in CO_q[q] if co not in G and co not in O)
+        sub.addConstraint(outside >= n_q.get(q, 40))
+
+        # 5. No clashes with fixed maths timetable + no self-clashes among non-maths
+        for d in D:
+            for h in H:
+                for s in S:
+                    weeks = E1 if s == 1 else E2
+                    for e in weeks:
+                        # Fixed occupancy from gateway + optional maths
+                        gateway_occ = any(xL_sol.get((g, d, h, s), 0) > 0.5 for g in G)
 
 
+                        fixed_occ = 1 if (gateway_occ) else 0
+
+                        nonmath_expr = xp.Sum(a_vars[co] * v.get((co, d, h, e, q, k), 0)
+                                              for co in CO_q[q] for k in K)
+
+                        sub.addConstraint(nonmath_expr <= 1 - fixed_occ)
+                        sub.addConstraint(nonmath_expr <= 1)   # no two non-maths in same slot
+
+        # === P for soft constraints ===
+        P = {}
+        for d in D:
+            for h in H:
+                for s in S:
+                    weeks = E1 if s == 1 else E2
+                    for e in weeks:
+                        fixed_part = (any(xL_sol.get((g,d,h,s),0)>0.5 for g in G) )
+
+                        nonmath_part = xp.Sum(a_vars[co] * v.get((co, d, h, e, q, k), 0)
+                                              for co in CO_q[q] for k in K)
+                        P[(d, h, s, e)] = (1 if fixed_part else 0) + nonmath_part
+
+        # Isolated and Days variables
+        is_isolated_var = {(d, h, s, e): xp.var(vartype=xp.binary, name=f"iso_{d}_{h}_{s}_{e}")
+                           for d in D for h in isolated_hours
+                           for s in S for e in (E1 if s==1 else E2)}
+        sub.addVariable(list(is_isolated_var.values()))
+
+        b_var = {(d, s, e): xp.var(vartype=xp.binary, name=f"b_{d}_{s}_{e}")
+                 for d in D for s in S for e in (E1 if s==1 else E2)}
+        sub.addVariable(list(b_var.values()))
+
+        # Constraints for isolated and days
+        for d in D:
+            for s in S:
+                weeks = E1 if s == 1 else E2
+                for e in weeks:
+                    for h in isolated_hours:
+                        p_curr = P.get((d, h, s, e), 0)
+                        p_next = P.get((d, h+1, s, e), 0)
+                        p_prev = P.get((d, h-1, s, e), 0)
+                        sub.addConstraint(is_isolated_var[(d,h,s,e)] >= p_curr - p_next - p_prev)
+                        sub.addConstraint(is_isolated_var[(d,h,s,e)] <= p_curr)
+
+                    total_day = xp.Sum(P.get((d, hh, s, e), 0) for hh in H)
+                    sub.addConstraint(b_var[(d,s,e)] <= total_day)
+                    sub.addConstraint(total_day <= len(H) * b_var[(d,s,e)])
+
+        # === Objective ===
+        travel_obj = 0
+        clash_obj = 0
+        late_obj = lunch_obj = wed_obj = 0
+        isolated_obj = xp.Sum(list(is_isolated_var.values()))   # FIXED: list()
+        days_obj = xp.Sum(list(b_var.values()))                 # FIXED: list()
+
+        # Travel: Gateway <-> non-maths
+        for d in D:
+            for h in H:
+                if h + 1 not in H: continue
+                for s in S:
+                    weeks = E1 if s == 1 else E2
+                    for e in weeks:
+                        for g in G:
+                            # Gateway at h → non-maths at h+1
+                            if xL_sol.get((g, d, h, s), 0) > 0.5:
+                                for co in nonmath_courses:
+                                    for k in K:
+                                        val = v.get((co, d, h+1, e, q, k), 0)
+                                        if val > 0:
+                                            travel_obj += travel_time_dict.get(("King's Buildings", k), 60) * val * a_vars[co]
+
+                            # non-maths at h → Gateway at h+1
+                            if xL_sol.get((g, d, h+1, s), 0) > 0.5:
+                                for co in nonmath_courses:
+                                    for k in K:
+                                        val = v.get((co, d, h, e, q, k), 0)
+                                        if val > 0:
+                                            travel_obj += travel_time_dict.get((k, "King's Buildings"), 60) * val * a_vars[co]
+
+        # non-maths <-> non-maths travel
+        for (co1, co2), chv in ch_vars.items():
+            for s in S:
+                weeks = E1 if s == 1 else E2
+                for e in weeks:
+                    for d in D:
+                        for h in H:
+                            if h + 1 not in H: continue
+                            for k1 in K:
+                                for k2 in K:
+                                    v1 = v.get((co1, d, h, e, q, k1), 0)
+                                    v2 = v.get((co2, d, h+1, e, q, k2), 0)
+                                    if v1 > 0 and v2 > 0:
+                                        travel_obj += travel_time_dict.get((k1, k2), 60) * v1 * v2 * chv
+
+        # Clash with optional maths
+        for s in S:
+            weeks = E1 if s == 1 else E2
+            for e in weeks:
+                for d in D:
+                    for h in H:
+                        opt_maths = any(yL_sol.get((o, d, h, s), 0) > 0.5 for o in O)
+                        if opt_maths:
+                            nonmath_expr = xp.Sum(a_vars[co] * v.get((co, d, h, e, q, k), 0)
+                                                  for co in nonmath_courses for k in K)
+                            clash_obj += nonmath_expr
+
+        # Late, lunch, wednesday
+        for s in S:
+            weeks = E1 if s == 1 else E2
+            for e in weeks:
+                for d in D:
+                    if 17 in H:
+                        late_obj += P.get((d, 17, s, e), 0)
+                    for hh in lunch_hours:
+                        if hh in H:
+                            lunch_obj += P.get((d, hh, s, e), 0)
+                    if d == wed_idx:
+                        for hh in wednesday_hours:
+                            if hh in H:
+                                wed_obj += P.get((d, hh, s, e), 0)
+
+        sub_obj = (scale_late * late_obj +
+                   scale_lunch * lunch_obj +
+                   scale_isolated * isolated_obj +
+                   scale_days * days_obj +
+                   scale_wed * wed_obj +
+                   scale_travel * travel_obj +
+                   scale_clash * clash_obj)
+
+        sub.setObjective(sub_obj, sense=xp.minimize)
+
+        # Solve
+        sub.setControl('timelimit', time_limit)
+        sub.setControl('outputlog', 0)
+        sub.solve()
+
+        status = sub.getProbStatusString()
+        if "optimal" in status or "Feasible" in status:
+            for co in CO_q[q]:
+                new_val = sub.getSolution(a_vars[co])
+                var_sol['a'][(q, co)] = new_val
+            print(f"   → Updated a for {q} (status: {status})")
+        else:
+            print(f"   → No improvement for {q} (status: {status})")
+
+    return var_sol
+def compute_total_objective(parameters, var_sol):
+    """
+    Computes the total objective value from the solution dictionaries
+    for the current model (all gateways mandatory, no ta variables).
+    """
+    G = parameters['G']
+    O = parameters['O']
+    S = parameters['S']
+    D = parameters['D']
+    H = parameters['H']
+    W = parameters['W']
+    Q = parameters['Q']
+    E1 = parameters['E1']
+    E2 = parameters['E2']
+    K = parameters['K']
+    v = parameters['v']
+    n_co = parameters['n_co']          # not directly used here but kept for consistency
+    programme_data = parameters['programme_data']
+    CO_q = {prog: programme_data[prog]['all_courses'] for prog in Q}
+
+    # Soft weights (must match exactly what you use in build_model_from_parameters)
+    lambda_travel = 0.01
+    lambda_clash = 0.1
+    lambda_late = 0.344249
+    lambda_lunch = 0.112523
+    lambda_isolated = 0.057430
+    lambda_days = 0.133207
+    lambda_wed = 0.028978
+
+    weeks_per_sem = len(E1)
+    N_late = len(S) * len(D) * weeks_per_sem
+    N_lunch = len(S) * len(D) * 2 * weeks_per_sem
+    N_isol = len(S) * len(D) * 7 * weeks_per_sem
+    N_days = len(S) * len(D) * weeks_per_sem
+    N_wed = len(S) * 5 * weeks_per_sem
+    N_clash = len(S) * weeks_per_sem * 3 * 2
+    max_travel_sem = 660 * weeks_per_sem * len(S)
+
+    scale_late = lambda_late / N_late
+    scale_lunch = lambda_lunch / N_lunch
+    scale_isolated = lambda_isolated / N_isol
+    scale_days = lambda_days / N_days
+    scale_wed = lambda_wed / N_wed
+    scale_travel = lambda_travel / max_travel_sem
+    scale_clash = lambda_clash / N_clash
+
+    # Extract solution dictionaries
+    xL_sol = var_sol.get('xL', {})
+    xW_sol = var_sol.get('xW', {})
+    xF_sol = var_sol.get('xF', {})
+    yL_sol = var_sol.get('yL', {})
+    yW_sol = var_sol.get('yW', {})
+    a_sol = var_sol.get('a', {})
+    ind_sol = var_sol.get('ind', {})   # linearisation a * xL
+    ch_sol = var_sol.get('ch', {})     # linearisation a * a
+
+    # Helper to check if a gateway event is active in a slot (considering fortnightly)
+    def is_gateway_active(g, d, h, s, e):
+        lect = xL_sol.get((g, d, h, s), 0) > 0.5
+        work = xW_sol.get((g, d, h, s), 0) > 0.5
+        parity = 1 if e % 2 == 1 else 2
+        fortn = xF_sol.get((g, d, h, s, parity), 0) > 0.5
+        return lect or work or fortn
+
+    # ------------------------------------------------------------------
+    # 1. Travel time objective
+    # ------------------------------------------------------------------
+    travel_obj = 0.0
+
+    # Term 1 & 2: Gateway <-> non-maths (using ind)
+    for q in Q:
+        for co in CO_q[q]:
+            if co in G or co in O:
+                continue
+            for g in G:
+                for s in S:
+                    weeks = E1 if s == 1 else E2
+                    for e in weeks:
+                        for d in D:
+                            for h in H:
+                                if h + 1 not in H:
+                                    continue
+                                # Maths at h → non-maths at h+1
+                                ind_val = ind_sol.get((q, co, g, d, h, s), 0)
+                                if ind_val > 0.5:
+                                    val = v.get((co, d, h + 1, e, q, k), 0) if 'k' in locals() else 0
+                                    for k in K:
+                                        val = v.get((co, d, h + 1, e, q, k), 0)
+                                        if val > 0:
+                                            travel_obj += travel_time_dict.get(("King's Buildings", k), 60) * ind_val
+
+                                # non-maths at h → Maths at h+1
+                                ind_val2 = ind_sol.get((q, co, g, d, h + 1, s), 0)
+                                if ind_val2 > 0.5:
+                                    for k in K:
+                                        val = v.get((co, d, h, e, q, k), 0)
+                                        if val > 0:
+                                            travel_obj += travel_time_dict.get((k, "King's Buildings"), 60) * ind_val2
+
+    # Term 3: non-maths <-> non-maths (using ch)
+    for q in Q:
+        nonmath = [co for co in CO_q[q] if co not in G and co not in O]
+        for i, co1 in enumerate(nonmath):
+            for co2 in nonmath[i+1:]:
+                ch_val = ch_sol.get((q, co1, co2), 0)
+                if ch_val <= 0.5:
+                    continue
+                for s in S:
+                    weeks = E1 if s == 1 else E2
+                    for e in weeks:
+                        for d in D:
+                            for h in H:
+                                if h + 1 not in H:
+                                    continue
+                                for k1 in K:
+                                    for k2 in K:
+                                        v1 = v.get((co1, d, h, e, q, k1), 0)
+                                        v2 = v.get((co2, d, h + 1, e, q, k2), 0)
+                                        if v1 > 0 and v2 > 0:
+                                            travel_obj += travel_time_dict.get((k1, k2), 60) * v1 * v2 * ch_val
+
+    # ------------------------------------------------------------------
+    # 2. Clash between optional maths and non-maths
+    # ------------------------------------------------------------------
+    clash_obj = 0.0
+    for q in Q:
+        for s in S:
+            weeks = E1 if s == 1 else E2
+            for e in weeks:
+                for d in D:
+                    for h in H:
+                        # Optional maths in this slot
+                        opt_math = (any(yL_sol.get((o, d, h, s), 0) > 0.5 for o in O) or
+                                    any(yW_sol.get((o, d, h, s), 0) > 0.5 for o in O))
+                        if not opt_math:
+                            continue
+
+                        # Non-maths in this slot
+                        nonmath_count = 0
+                        for co in CO_q[q]:
+                            if co in G or co in O:
+                                continue
+                            if a_sol.get((q, co), 0) > 0.5:
+                                for k in K:
+                                    if v.get((co, d, h, e, q, k), 0) > 0:
+                                        nonmath_count += 1
+                                        break
+                        clash_obj += nonmath_count   # since opt_math is 0 or 1
+
+    # ------------------------------------------------------------------
+    # 3. Late, lunch, Wednesday, isolated, days
+    # ------------------------------------------------------------------
+    late_obj = lunch_obj = wed_obj = isolated_obj = days_obj = 0.0
+
+    q_math = "math"
+    QQ = Q + [q_math]
+
+    for q in QQ:
+        for s in S:
+            weeks = E1 if s == 1 else E2
+            for e in weeks:
+                for d in D:
+                    for h in H:
+                        # Compute P(q, d, h, s, e)
+                        if q == q_math:
+                            p_val = (sum(xL_sol.get((g, d, h, s), 0) for g in G) +
+                                     sum(yL_sol.get((o, d, h, s), 0) for o in O) +
+                                     sum(xW_sol.get((g, d, h, s), 0) for g in G) +
+                                     sum(yW_sol.get((o, d, h, s), 0) for o in O))
+                            # fortnightly contribution approximated (conservative)
+                            parity = 1 if e % 2 == 1 else 2
+                            p_val += sum(xF_sol.get((g, d, h, s, parity), 0) for g in G)
+                        else:
+                            gateway_part = sum(1 for g in G if is_gateway_active(g, d, h, s, e))
+                            nonmath_part = 0
+                            for co in CO_q[q]:
+                                if co in G or co in O:
+                                    continue
+                                if a_sol.get((q, co), 0) > 0.5:
+                                    for k in K:
+                                        if v.get((co, d, h, e, q, k), 0) > 0:
+                                            nonmath_part += 1
+                                            break
+                            p_val = gateway_part + nonmath_part
+
+                        # Count soft violations
+                        if h == 17:
+                            late_obj += p_val
+                        if h in [12, 13]:
+                            lunch_obj += p_val
+                        if d == 3 and h in range(13, 18):
+                            wed_obj += p_val
+
+                        # Isolated (we approximate using solution of is_isolated if available)
+                        if 10 <= h <= 16:
+                            iso_key = (q, d, h, s, e)
+                            isolated_obj += var_sol.get('is_isolated', {}).get(iso_key, 0)
+
+                    # Days used
+                    day_key = (q, d, s, e)
+                    days_obj += var_sol.get('b', {}).get(day_key, 0)
+
+    # ------------------------------------------------------------------
+    # Final objective
+    # ------------------------------------------------------------------
+    total_obj = (scale_late * late_obj +
+                 scale_lunch * lunch_obj +
+                 scale_isolated * isolated_obj +
+                 scale_days * days_obj +
+                 scale_wed * wed_obj +
+                 scale_travel * travel_obj +
+                 scale_clash * clash_obj)
+
+    return total_obj
+var_sol_improved = improve_nonmaths_selection(parameters, model, var_sol, time_limit=600)
+
+# Compare
+print("Improved objective (approximate):", compute_total_objective(parameters, var_sol_improved))
 def plot_curriculum_timetable(q, semester, var_sol, parameters,
                               week=None,
                               day_names=['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
