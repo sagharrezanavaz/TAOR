@@ -1,0 +1,256 @@
+Extraction Summary:
+  - Gateway courses: 8
+  - Optional courses: 4
+  - Programmes: 10
+  - Days: [1, 2, 3, 4, 5]
+  - Hours: [9, 10, 11, 12, 13, 14, 15, 16, 17]
+  - Weeks: 52 (Sem1: 10, Sem2: 11)
+  - Campuses: ['Central', 'Holyrood', 'New College', 'Kings Buildings', 'Lauriston']
+  - Collections: 22
+  - Regression groups: 17
+  - Timetable entries: 57810
+  - Courses with credits: 253
+Number of gateway courses: 8
+Number of optional courses: 4
+Number of programmes: 10
+Collection groups: 22
+Regression groups: 17
+Creating decision variables...
+Adding hard constraints...
+Building objective...
+Total constraints added: 754460
+Creating decision variables...
+Adding hard constraints...
+Building objective...
+Total constraints added: 754460
+FICO Xpress v9.8.1, Hyper, solve started 15:10:08, Mar 30, 2026
+Heap usage: 312MB (peak 312MB, 58KB system)
+Minimizing MIQP noname using up to 16 threads and up to 15GB memory, with these control settings:
+MAXTIME = 7200
+OUTPUTLOG = 1
+MIPRELSTOP = .2
+NLPPOSTSOLVE = 1
+XSLP_DELETIONCONTROL = 0
+XSLP_OBJSENSE = 1
+Original problem has:
+    754460 rows       255017 cols      2250471 elements    255017 entities
+      7040 qobjelem
+Presolved problem has:
+    499200 rows       171100 cols      1231006 elements    168328 entities
+LP relaxation tightened
+Presolve finished in 295 seconds
+Heap usage: 512MB (peak 760MB, 58KB system)
+
+Coefficient range                    original                 solved        
+  Coefficients   [min,max] : [ 1.00e+00,  4.00e+01] / [ 1.25e-01,  1.75e+00]
+  RHS and bounds [min,max] : [ 1.00e+00,  1.20e+02] / [ 2.50e-01,  7.00e+00]
+  Objective      [min,max] : [ 7.58e-06,  4.52e-01] / [ 7.58e-06,  4.52e-01]
+  Quadratic      [min,max] : [ 1.83e-02,  4.17e-01] / [      0.0,       0.0]
+Autoscaling applied standard scaling
+
+Will try to keep branch and bound tree memory usage below 6.0GB
+ *** Solution found:     4.780386   Time: 299.78    Heuristic: e ***
+Starting concurrent solve with dual (1 thread) and barrier (15 threads)
+
+              Concurrent-Solve, 305s
+            Dual                      Barrier      
+    objective   dual inf        p.obj.     d.obj.  
+ D   .1253430   .0000000 |  B  12592.389 -567.65218
+ D   .1873257   .0000000 |  B  1180.0014 -1218.4046
+ D   .2411995   .0000000 |  B  254.10844 -405.85899
+ D   .2558791   .0000000 |  B  2.3055324 -18.622512
+ D   .2825237   .0000000 |  B  1.2272578 -3.2839986
+ D   .2996143   .0000000 |  B   .9936975 -2.0123336
+ D   .3097772   .0000000 |  B   .7699539  -.0443688
+ D   .3261235   .0000000 |  B   .7066571   .2611440
+ D   .3261240   .0000000 |  B   .6748266   .3724518
+ D   .3272103   .0000000 |  B   .6416725   .4201842
+ D   .3304163   .0000000 |  B   .6169426   .5538368
+ D   .3304176   .0000000 |  B   .6145797   .5575028
+ D   .3304186   .0000000 |  B   .6001989   .5806321
+ D   .3329990   .0000000 |  B   .5957429   .5827048
+ D   .3335246   .0000000 |  B   .5907598   .5858928
+ D   .3351534   .0000000 |  B   .5896680   .5863496
+ D   .3361961   .0000000 |  B   .5890007   .5866568
+ D   .3401423   .0000000 |  B   .5880312   .5879735
+ D   .3524762   .0000000 |           crossover     
+ D   .3567903   .0000000 |  P   .5880033   .0000000
+----- interrupted ------ | ------- optimal --------
+Concurrent statistics:
+           Dual: 50389 simplex iterations, 31.13s
+        Barrier: 46 barrier and 1598 simplex iterations, 31.07s
+            Barrier used 15 threads 8 cores
+            Barrier used AVX2 support, crossover used 8 threads
+Optimal solution found
+ 
+   Its         Obj Value      S   Ninf  Nneg        Sum Inf  Time
+    22           .588003      P      0     0        .000000   333
+Barrier solved problem
+  46 barrier and 1598 simplex iterations in 31.54 seconds at time 333
+
+Final objective                       : 5.880033195673192e-01
+  Max primal violation      (abs/rel) : 1.554e-15 / 1.554e-15
+  Max dual violation        (abs/rel) : 1.041e-17 / 1.041e-17
+  Max complementarity viol. (abs/rel) :       0.0 /       0.0
+
+Starting root cutting & heuristics
+Deterministic mode with up to 2 additional threads
+
+ Its Type    BestSoln    BestBound   Sols    Add    Del     Gap     GInf   Time
+g            3.989471      .588003      2                 85.26%       0    344
+g            3.160147      .588003      3                 81.39%       0    347
+R            2.491124      .592568      4                 76.21%       0    395
+R            2.490955      .592568      5                 76.21%       0    395
+R            2.454288      .592568      6                 75.86%       0    395
+   1  K      2.454288      .592568      6  10000      0   75.86%    2359    395
+   2  K      2.454288      .765055      6  10000   9718   68.83%    2082    458
+   3  K      2.454288      .878405      6  10000   7459   64.21%    2525    528
+   4  K      2.454288      .911938      6  10000  10323   62.84%    2635    602
+   5  K      2.454288      .924860      6  10000   8743   62.32%    3324    669
+   6  K      2.454288      .930469      6  10000   7123   62.09%    2934    753
+   7  K      2.454288      .934330      6  10000   9304   61.93%    3456    831
+   8  K      2.454288      .936762      6  10000   7760   61.83%    3836    890
+   9  K      2.454288      .937480      6  10000   8269   61.80%    3497    954
+R            2.275930      .937533      7                 58.81%       0   1033
+   4  K      2.454288      .911938      6  10000  10323   62.84%    2635    602
+   5  K      2.454288      .924860      6  10000   8743   62.32%    3324    669
+   6  K      2.454288      .930469      6  10000   7123   62.09%    2934    753
+   7  K      2.454288      .934330      6  10000   9304   61.93%    3456    831
+   8  K      2.454288      .936762      6  10000   7760   61.83%    3836    890
+   9  K      2.454288      .937480      6  10000   8269   61.80%    3497    954
+R            2.275930      .937533      7                 58.81%       0   1033
+   6  K      2.454288      .930469      6  10000   7123   62.09%    2934    753
+   7  K      2.454288      .934330      6  10000   9304   61.93%    3456    831
+   8  K      2.454288      .936762      6  10000   7760   61.83%    3836    890
+   9  K      2.454288      .937480      6  10000   8269   61.80%    3497    954
+R            2.275930      .937533      7                 58.81%       0   1033
+   7  K      2.454288      .934330      6  10000   9304   61.93%    3456    831
+   8  K      2.454288      .936762      6  10000   7760   61.83%    3836    890
+   9  K      2.454288      .937480      6  10000   8269   61.80%    3497    954
+R            2.275930      .937533      7                 58.81%       0   1033
+   9  K      2.454288      .937480      6  10000   8269   61.80%    3497    954
+R            2.275930      .937533      7                 58.81%       0   1033
+R            1.759401      .937533      8                 46.71%       0   1033
+  10  K      1.759401      .937533      8  10000   5665   46.71%    2755   1033
+R            1.759401      .937533      8                 46.71%       0   1033
+  10  K      1.759401      .937533      8  10000   5665   46.71%    2755   1033
+  11  K      1.759401      .938224      8  10000   7409   46.67%    3054   1098
+  12  K      1.759401      .939236      8  10000  13070   46.62%    3711   1200
+  11  K      1.759401      .938224      8  10000   7409   46.67%    3054   1098
+  12  K      1.759401      .939236      8  10000  13070   46.62%    3711   1200
+  13  K      1.759401      .939379      8  10000   6711   46.61%    3377   1328
+  14  K      1.759401      .939398      8  10000   7756   46.61%    3321   1488
+  15  K      1.759401      .939596      8  10000  37785   46.60%    3512   1627
+  16  G      1.759401      .942231      8   2703      0   46.45%    3559   1671
+  17  G      1.759401      .942831      8   3241   6212   46.41%    3844   1708
+Heuristic search 'R' started
+R            1.444812      .942831      9                 34.74%       0   1762
+R            1.393048      .942831     10                 32.32%       0   1825
+R            1.278035      .942831     11                 26.23%       0   1828
+R            1.154513      .942831     12                 18.34%       0   1947
+STOPPING - MIPRELSTOP target reached (MIPRELSTOP=0.2  gap=0.183352).
+Heuristic search 'R' stopped
+ *** Search completed ***
+Uncrunching matrix
+Final MIP objective                   : 1.154512649545455e+00
+Final MIP bound                       : 9.428306238612214e-01
+  Solution time / primaldual integral :   1948.03s/ 61.148740%
+  Work / work units per second        :   1325.31 /      0.68
+  Number of solutions found / nodes   :        12 /         0
+  Max primal violation      (abs/rel) :       0.0 /       0.0
+  Max integer violation     (abs    ) :       0.0
+
+Solution status: mip_optimal
+Feasible solution found!
+
+
+
+
+
+
+Solution status: mip_optimal
+Feasible solution found!
+
+
+
+
+Solution status: mip_optimal
+Feasible solution found!
+
+
+
+Solution status: mip_optimal
+Feasible solution found!
+
+Solution status: mip_optimal
+Feasible solution found!
+
+Solution status: mip_optimal
+Feasible solution found!
+Solution status: mip_optimal
+Solution status: mip_optimal
+Feasible solution found!
+Solution status: mip_optimal
+Solution status: mip_optimal
+Feasible solution found!
+Solution status: mip_optimal
+Solution status: mip_optimal
+Solution status: mip_optimal
+Feasible solution found!
+
+==================================================
+SOLUTION RESULTS
+==================================================
+
+Gateway Course Schedule:
+  G1: Semester(s) [2]
+  G2: Semester(s) [1]
+  G3: Semester(s) [2]
+  G4: Semester(s) [1]
+  G5: Semester(s) [1]
+  G6: Semester(s) [2]
+  G7: Semester(s) [1]
+  G8: Semester(s) [2]
+
+Optional Course Schedule:
+  O1: Semester(s) [1]
+  O2: Semester(s) [2]
+  O3: Semester(s) [1]
+  O4: Semester(s) [2]
+
+Non‑Maths Course Selections per Curriculum:
+  Economics and Mathematics (MA Hons): Year 3: ['Topics in Macroeconomics', 'Topics in Microeconomics', 'Essentials of Econometrics']
+  Economics and Mathematics (MA Hons): Year 4: ['Economics of Sport', 'Fiscal Policy, Macroeconomics and Inequality']
+  Philosophy and Mathematics (MA Hons): Year 3: ['Philosophy of Technology', 'Philosophy of Religion']
+  Mathematics and Business BSc (Hons): Year 4: ['Behavioural Finance and Market Efficiency', 'Applications of Human Resource Management']
+  Computer Science and Mathematics (BSc Hons): Year 3: ['Informatics Large Practical', 'Entrepreneurship and Innovation Project', 'Speech Processing (Hons)', 'Software Design and Modelling', 'Computer Security', 'Modelling Concurrent Systems (Level 10)', 'Professional Issues (Level 10)']
+  Computer Science and Mathematics (BSc Hons): Year 4: ['Computer Security', 'Informatics Experiential Learning (Level 10)']
+  Mathematics and Physics (BSc Hons): Year 4: ['MPhys Project']
+  Mathematics and Business BSc (Hons): Year 3: ['Operations Strategy', 'The Entrepreneurial Manager']
+  Mathematics and Physics (BSc Hons): Year 3: ['Electromagnetism and Relativity', 'Thermal Physics']
+  Philosophy and Mathematics (MA Hons): Year 4: ['Freedom, Consent and Political Obligation', 'Philosophical Naturalism']
+
+Feasibility Status:
+  Model is feasible - all constraints satisfied.
+Improving non-maths selection for: Economics and Mathematics (MA Hons): Year 3
+   → Updated a for Economics and Mathematics (MA Hons): Year 3 (status: mip_optimal)
+Improving non-maths selection for: Economics and Mathematics (MA Hons): Year 4
+   → Updated a for Economics and Mathematics (MA Hons): Year 4 (status: mip_optimal)
+Improving non-maths selection for: Philosophy and Mathematics (MA Hons): Year 3
+   → Updated a for Philosophy and Mathematics (MA Hons): Year 3 (status: mip_optimal)
+Improving non-maths selection for: Mathematics and Business BSc (Hons): Year 4
+   → Updated a for Mathematics and Business BSc (Hons): Year 4 (status: mip_optimal)
+Improving non-maths selection for: Computer Science and Mathematics (BSc Hons): Year 3
+   → No improvement for Computer Science and Mathematics (BSc Hons): Year 3 (status: mip_infeas)
+Improving non-maths selection for: Computer Science and Mathematics (BSc Hons): Year 4
+   → Updated a for Computer Science and Mathematics (BSc Hons): Year 4 (status: mip_optimal)
+Improving non-maths selection for: Mathematics and Physics (BSc Hons): Year 4
+   → Updated a for Mathematics and Physics (BSc Hons): Year 4 (status: mip_optimal)
+Improving non-maths selection for: Mathematics and Business BSc (Hons): Year 3
+   → Updated a for Mathematics and Business BSc (Hons): Year 3 (status: mip_optimal)
+Improving non-maths selection for: Mathematics and Physics (BSc Hons): Year 3
+   → Updated a for Mathematics and Physics (BSc Hons): Year 3 (status: mip_optimal)
+Improving non-maths selection for: Philosophy and Mathematics (MA Hons): Year 4
+   → Updated a for Philosophy and Mathematics (MA Hons): Year 4 (status: mip_optimal)
+Improved objective (approximate):  1.3950336416666667
+Unnormalised objectives:  [(341.0, 'Late'), (295.0, 'Lunch'), (0.0, 'Isolated'), (0.0, 'Days'), (107.0, 'Wednesday'), (0.0, 'Travel'), (29.0, 'Clash')]
