@@ -11,160 +11,188 @@ import numpy as np
 import pandas as pd
 import warnings
 warnings.filterwarnings("ignore")
+# %%
+import xpress as xp
+import numpy as np
+import pandas as pd
+import warnings
 
-def change_name(name):
-    n = len(name)
-    a = name[:(n-7)//2]
-    #print(a)
-    b = name[(n-7)//2 + 2:]
-    #print(b)
-    c = name[:(n-7)//2 +5]
-    d = name[(n-7)//2 +5+2:]
-    if '(UG)' in a:
-        return a
-    elif '(UG)' in b:
-        return b
-    elif '(UG)' in c:
-        return c
-    elif '(UG)' in c:
-        return d
-    else:
-        split = name.split(',')
-        a = split[0]
-        b = split[1]
-        if '(UG)' in a:
-            return a
-        elif '(UG)' in b:
-            return b
-        else:
-            return "Error"
-departments_needed = ['School of Mathematics','School of Philosophy, Psychology and Language Sciences','School of Economics','School of Informatics',
-                      'School of Physics and Astronomy',
-                      'Business School']
-collections_needed = ['Economics Course Options for Joint Programmes Year 3 (A)',
-       'Economics Course Options Year 3 (joint programmes)',
-       'Economics and Maths Dissertation',
-       'Economics Course Options Year 4 (joint programmes)',
-       'Topics in Microeconomics', 'Essentials of Econometrics','MathPhy : Mathematics Projects',
-       'MathsPhysics : Y4 Physics Projects',
-       'Undergraduate (School of Physics and Astronomy) Level 10 and 11 courses',
-       'Electromagnetism and Relativity',
-       'MathsPhysics : Y3 physics choice',
-       'Undergraduate (School of Physics and Astronomy) Level 9 and 10  courses',
-       'MathsBusiness : Y4 Projects',
-       '2024-25: UTMATHB : Y4/5 : Approved Outside Courses',
-       'ROU_H_UT International Business 4_10',
-       'Strategic Management',
-       '2024-25: UTMATHB : Y3 options : Business options',
-       'Informatics Hons 3rd Year Group Project and Large Practical',
-       'Informatics Hons 3rd Year AI Courses',
-       'Informatics Hons 3rd Year Joint Degree CS Courses',
-       'Informatics - Professional Issues',
-       'Honours Project (Informatics)',
-       'Informatics Hons 4th Year Courses',
-        'Year 3 Philosophy - History of Philosophy',
-       'Practical Philosophy', 'Theoretical Philosophy',
-       'Philosophy Honours Year 4']
-programmes_needed = ['Mathematics and Business BSc (Hons)',
-                     #'Mathematics and Physics (BSc Hons)',
-                     'Economics and Mathematics (MA Hons)','Computer Science and Mathematics (BSc Hons)',
-              'Philosophy and Mathematics (MA Hons)']
-
+warnings.filterwarnings("ignore")
+# %%
+programme_df = pd.read_csv('2024-5 DPT Data.csv', encoding="latin1")
 courses_df = pd.read_csv("2024-5 Event Module Room.csv")
-courses_df = courses_df[courses_df["Module Department"].isin(departments_needed)]
-courses_df = courses_df[courses_df["Event Type"]=="Lecture"]
-programme_df = pd.read_csv('2024-5 DPT Data.csv',encoding = "latin1")
+departments = [
+    'School of Philosophy, Psychology and Language Sciences',
+    'School of Economics',
+    'School of Informatics',
+    'School of Physics and Astronomy',
+    'Business School'
+]
+programmes = ['Mathematics and Business BSc (Hons)',
+              'Mathematics and Physics (BSc Hons)',
+              'Economics and Mathematics (MA Hons)',
+              'Computer Science and Mathematics (BSc Hons)',
+              'Philosophy and Mathematics (MA Hons)'
+              ]
 
-programme_df = programme_df[programme_df["Programme Year"].isin([3])]
-programme_df = programme_df[programme_df["Programme Name"].isin(programmes_needed)]
-programme_df = programme_df[programme_df["Collection Name"].isin(collections_needed)]
+needed = [
+    '2024-25: UTMATHB : Y3 options : Business options', '2024-25: UTMATHB : Y4/5 : Approved Outside Courses',
+    'ROU_H_UT International Business 4_10',
 
-ug_indices = courses_df[
-    (courses_df["Module Department"]=="School of Informatics") & 
-    (courses_df['Module Name'].str.contains('\(UG\)', na=False))
-].index
+    'Economics Course Options for Joint Programmes Year 3 (A)', 'Topics in Microeconomics',
+    'Essentials of Econometrics', 'Economics Course Options Year 3 (joint programmes)',
+    'Economics Course Options Year 4 (joint programmes)',
 
-# Apply the change_name function to those specific rows
-courses_df.loc[ug_indices, 'Module Name'] = courses_df.loc[ug_indices, 'Module Name'].apply(change_name)
-#programme_df = programme_df[programme_df['Collection Reg Group']!="Physics 3 A"]
+    'Electromagnetism and Relativity', 'Undergraduate (School of Physics and Astronomy) Level 9 and 10  courses',
+    'MathsPhysics : Y3 physics choice', 'MathsPhysics : Y4 Physics Projects',
+    'Undergraduate (School of Physics and Astronomy) Level 10 and 11 courses',
 
-# Year 3
-#Informatics 
-condition_inf_A3 = (
-    (programme_df['Collection Reg Group'] == 'A') & 
-    (programme_df['Programme School Name'] == 'School of Informatics') & 
-    (programme_df['Programme Year'] == 3)
+    'Informatics Hons 3rd Year Group Project and Large Practical', 'Informatics Hons 3rd Year AI Courses',
+    'Informatics Hons 3rd Year Joint Degree CS Courses', 'Informatics - Professional Issues',
+    'Informatics Hons 4th Year Courses',
+
+    'Year 3 Philosophy - History of Philosophy', 'Practical Philosophy', 'Theoretical Philosophy',
+    'Philosophy Honours Year 4'
+]
+years = [3, 4]
+programme_df = programme_df[programme_df['Programme Name'].isin(programmes)]
+programme_df = programme_df[programme_df['Programme Year'].isin(years)]
+courses_df = courses_df[courses_df['Module Department'].isin(departments)]
+programme_df = programme_df[programme_df['Collection Name'].isin(needed)]
+# %%
+# Changes for economics
+economics_course_change = (
+    (courses_df[
+         'Module Name'] == 'Advanced Mathematical Economics, Advanced Mathematical Economics, Advanced Mathematical Economics, Mathematical Microeconomics 1')
 )
-programme_df.loc[condition_inf_A3, 'Collection Reg Group'] = 'School of Informatics 3 A'
+courses_df.loc[economics_course_change, 'Module Name'] = 'Advanced Mathematical Economics'
 
-#Economics
-condition_eco_A3 = (
-    (programme_df['Collection Reg Group'] == 'A') & 
-    (programme_df['Programme School Name'] == 'School of Economics') & 
-    (programme_df['Programme Year'] == 3)
+economics_course_change_1 = (
+    (courses_df[
+         'Module Name'] == 'Advanced Mathematical Economics, Advanced Mathematical Economics, Mathematical Microeconomics 1, Advanced Mathematical Economics')
 )
-programme_df.loc[condition_eco_A3, 'Collection Reg Group'] = 'Economics 3 A'
+courses_df.loc[economics_course_change_1, 'Module Name'] = 'Advanced Mathematical Economics'
 
-#Philosophy
-condition_phi_B3 = (
-    (programme_df['Collection Reg Group'] == 'B') & 
-    (programme_df['Programme School Name'] == 'School of Philosophy, Psychology and Language Sciences') & 
-    (programme_df['Programme Year'] == 3)
+
+def filtering(programme_name, module_department, startwith):
+    prog = programme_df[programme_df['Programme Name'] == programme_name]
+    cour = courses_df[courses_df['Module Department'] == module_department]
+    all_courses = sorted(cour['Module Name'].unique())
+    filtered = prog[~prog['Course Code'].str.startswith(startwith)]
+    filtered_courses = sorted(filtered['Course Name'].unique())
+    not_there = sorted(list(set(filtered_courses) - set(all_courses)))
+    return all_courses, not_there
+
+
+programme_df['Collection Name'].unique()
+# %%
+a_phy, n_phy = filtering('Mathematics and Physics (BSc Hons)', 'School of Physics and Astronomy', 'MAT')
+for i in n_phy:
+    for j in a_phy:
+        l = [x.strip() for x in j.split(',')]
+        if i in l:
+            condition = ((courses_df['Module Name'] == j))
+            courses_df.loc[condition, 'Module Name'] = i
+# programme_df= programme_df[~programme_df['Course Name'].isin(['Statistical Mechanics','Thermodynamics'])]
+condition = ((programme_df[
+                  'Collection Name'] == 'Undergraduate (School of Physics and Astronomy) Level 9 and 10  courses') &
+             (programme_df['Course Name'] == 'Thermal Physics'))
+programme_df = programme_df[~condition]
+# Informatics changes
+a_inf, n_inf = filtering('Computer Science and Mathematics (BSc Hons)', 'School of Informatics', ('MAT', 'Lev'))
+
+for i in n_inf:
+    for j in a_inf:
+        if i in j:
+            condition = ((courses_df['Module Name'] == j))
+            courses_df.loc[condition, 'Module Name'] = i
+
+name = 'Speech Processing, Speech Processing (Hons)'
+
+condition = ((courses_df['Module Name'] == name))
+courses_df.loc[condition, 'Module Name'] = 'Speech Processing (Hons)'
+# %%
+a_phi, n_phi = filtering('Philosophy and Mathematics (MA Hons)',
+                         'School of Philosophy, Psychology and Language Sciences', ('MAT'))
+
+for i in n_phi:
+    for j in a_phi:
+        if i in j:
+            condition = ((courses_df['Module Name'] == j))
+            courses_df.loc[condition, 'Module Name'] = i
+# Changing name of degree programmes
+for degree in programmes:
+    for year in years:
+        condition = ((programme_df['Programme Name'] == degree) &
+                     (programme_df['Programme Year'] == year))
+        programme_df.loc[condition, 'Programme Name'] = degree + ': Year ' + str(year)
+
+programmes = programme_df['Programme Name'].unique()
+# Filtering unnecessary courses
+n_phy_3 = filtering('Mathematics and Physics (BSc Hons): Year 3', 'School of Physics and Astronomy', ('Lev', 'MAT'))[1]
+n_phy_4 = filtering('Mathematics and Physics (BSc Hons): Year 4', 'School of Physics and Astronomy', ('Lev', 'MAT'))[1]
+n_bus_3 = filtering('Mathematics and Business BSc (Hons): Year 3', 'Business School', ('Lev', 'MAT'))[1]
+n_bus_4 = filtering('Mathematics and Business BSc (Hons): Year 4', 'Business School', ('Lev', 'MAT'))[1]
+n_phi_3 = \
+filtering('Philosophy and Mathematics (MA Hons): Year 3', 'School of Philosophy, Psychology and Language Sciences',
+          ('Lev', 'MAT'))[1]
+n_phi_4 = \
+filtering('Philosophy and Mathematics (MA Hons): Year 4', 'School of Philosophy, Psychology and Language Sciences',
+          ('Lev', 'MAT'))[1]
+not_required_courses = n_phy_3 + n_phy_4 + n_bus_3 + n_bus_4 + n_phi_3 + n_phi_4
+
+programme_df = programme_df[
+    ~programme_df['Course Name'].isin(not_required_courses)
+]
+# %%
+# Fixing Reg Group Names
+for degree in programmes:
+    new = programme_df[programme_df['Programme Name'] == degree]
+    groups = new['Collection Reg Group'].dropna().unique()
+    for collection in groups:
+        condition = (
+                (programme_df['Programme Name'] == degree) &
+                (programme_df['Collection Reg Group'] == collection)
+        )
+        programme_df.loc[condition, 'Collection Reg Group'] = degree + ', Group ' + str(collection)
+
+condition = (
+        (programme_df['Collection Reg Group'].isna()) &
+        (programme_df['Programme Year'].isin([3, 4]))
 )
-programme_df.loc[condition_phi_B3, 'Collection Reg Group'] = 'Philosophy 3 B'
+programme_df.loc[condition, [
+    'Collection Reg Group',
+    'Collection Group Max',
+    'Collection Group Min'
+]] = programme_df.loc[condition, [
+    'Collection Name',
+    'Collection Max Value',
+    'Collection Min Value'
+]].values
 
-#Business
-condition_bus_B3 = (
-    (programme_df['Collection Reg Group'] == 'B') & 
-    (programme_df['Programme Name'] == 'Mathematics and Business BSc (Hons)') & 
-    (programme_df['Programme Year'] == 3)
-)
-programme_df.loc[condition_bus_B3, 'Collection Reg Group'] = 'Business 3 B'
+condition_1 = ((programme_df['Collection Reg Group'] == 'Mathematics and Physics (BSc Hons): Year 3, Group A'))
+programme_df.loc[condition_1, ['Collection Group Min', 'Collection Group Max']] = [0.0, 40.0]
+condition_2 = ((programme_df['Collection Reg Group'] == 'Mathematics and Business BSc (Hons): Year 3, Group B'))
+programme_df.loc[condition_2, ['Collection Group Min', 'Collection Group Max']] = [0, 60.0]
+condition_3 = ((programme_df['Collection Reg Group'] == 'Philosophy and Mathematics (MA Hons): Year 3, Group B'))
+programme_df.loc[condition_3, ['Collection Group Min', 'Collection Group Max']] = [40.0, 80.0]
+condition_4 = ((programme_df['Collection Reg Group'] == 'Economics and Mathematics (MA Hons): Year 3, Group A'))
+programme_df.loc[condition_4, ['Collection Group Min', 'Collection Group Max']] = [0.0, 20.0]
+condition_5 = ((programme_df['Collection Reg Group'] == 'Mathematics and Physics (BSc Hons): Year 4, Group A'))
+programme_df.loc[condition_5, ['Collection Group Min', 'Collection Group Max']] = [0.0, 20.0]
+condition_6 = ((programme_df['Collection Reg Group'] == 'Mathematics and Physics (BSc Hons): Year 4, Group B'))
+programme_df.loc[condition_6, ['Collection Group Min', 'Collection Group Max']] = [0.0, 40.0]
+condition_7 = ((programme_df['Collection Reg Group'] == 'Mathematics and Business BSc (Hons): Year 4, Group A'))
+programme_df.loc[condition_7, ['Collection Group Min', 'Collection Group Max']] = [40.0, 60.0]
+condition_8 = ((programme_df['Collection Reg Group'] == 'Computer Science and Mathematics (BSc Hons): Year 4, Group A'))
+programme_df.loc[condition_8, ['Collection Group Min', 'Collection Group Max']] = [0.0, 40.0]
+condition_9 = ((programme_df['Collection Reg Group'] == 'Computer Science and Mathematics (BSc Hons): Year 4, Group B'))
+programme_df.loc[condition_9, ['Collection Group Min', 'Collection Group Max']] = [0.0, 60.0]
+# %%
+courses_df = courses_df[courses_df['Event Type'].isin(['Lecture', 'Laboratory', 'Seminar'])]
 
-#Physics
-#condition_phy_A3 = (
- #   (programme_df['Collection Reg Group'] == 'A') & 
-  #  (programme_df['Programme Name'] == 'Mathematics and Physics (BSc Hons)') & 
-   # (programme_df['Programme Year'] == 3)
-#)
-#programme_df.loc[condition_phy_A3, 'Collection Reg Group'] = 'Physics 3 A'
 
-#Physics
-#condition_bounds_phy_A3 = (
- #   (programme_df['Collection Reg Group'] == 'Physics 3 A') & 
-  #  (programme_df['Programme Name'] == 'Mathematics and Physics (BSc Hons)') & 
-   # (programme_df['Programme Year'] == 3)
-#)
-#programme_df.loc[condition_bounds_phy_A3, 'Collection Group Min'] = 20.0
-#programme_df.loc[condition_bounds_phy_A3, 'Collection Group Max'] = 40.0
-
-#Business
-condition_bounds_bus_B3 = (
-    (programme_df['Collection Reg Group'] == 'Business 3 B') & 
-    (programme_df['Programme Name'] == 'Mathematics and Business BSc (Hons)') & 
-    (programme_df['Programme Year'] == 3)
-)
-programme_df.loc[condition_bounds_bus_B3, 'Collection Group Min'] = 0.0
-programme_df.loc[condition_bounds_bus_B3, 'Collection Group Max'] = 60.0
-
-#Philosophy
-condition_bounds_phi_B3 = (
-    (programme_df['Collection Reg Group'] == 'Philosophy 3 B') & 
-    (programme_df['Programme School Name'] == 'School of Philosophy, Psychology and Language Sciences') & 
-    (programme_df['Programme Year'] == 3)
-)
-programme_df.loc[condition_bounds_phi_B3, 'Collection Group Min'] = 40.0
-programme_df.loc[condition_bounds_phi_B3, 'Collection Group Max'] = 80.0
-
-#Economics
-condition_bounds_eco_A3 = (
-    (programme_df['Collection Reg Group'] == 'Economics 3 A') & 
-    (programme_df['Programme School Name'] == 'School of Economics') & 
-    (programme_df['Programme Year'] == 3)
-)
-programme_df.loc[condition_bounds_eco_A3, 'Collection Group Min'] = 0.0
-programme_df.loc[condition_bounds_eco_A3, 'Collection Group Max'] = 20.0
-
+# %%
 def extract_programme_structure(programme_df):
     """
     Extract programme-specific information including collections and regression groups
@@ -172,24 +200,24 @@ def extract_programme_structure(programme_df):
     """
     # Get unique programmes
     programmes = programme_df['Programme Name'].unique().tolist()
-    
+
     programme_data = {}
-    
+
     for programme in programmes:
         prog_data = programme_df[programme_df['Programme Name'] == programme]
-        
+
         # Get compulsory and optional courses for this programme
         compulsory_courses = prog_data[
             prog_data['Compulsory/Optional'] == 'Compulsory'
-        ]['Course Name'].unique().tolist()
-        
+            ]['Course Name'].unique().tolist()
+
         optional_courses = prog_data[
             prog_data['Compulsory/Optional'] == 'Optional'
-        ]['Course Name'].unique().tolist()
-        
+            ]['Course Name'].unique().tolist()
+
         # Get all courses for this programme
         all_courses = prog_data['Course Name'].unique().tolist()
-        
+
         # Get collection information - store as dictionary
         collections = {}
         for _, row in prog_data.iterrows():
@@ -206,7 +234,7 @@ def extract_programme_structure(programme_df):
                 # Add course to collection if not already there
                 if row['Course Name'] not in collections[collection_code]['courses']:
                     collections[collection_code]['courses'].append(row['Course Name'])
-        
+
         # Get regression group information - store as dictionary
         regression_groups = {}
         for _, row in prog_data.iterrows():
@@ -223,7 +251,7 @@ def extract_programme_structure(programme_df):
                 if pd.notna(collection_code) and collection_code != '':
                     if collection_code not in regression_groups[reg_group]['collections']:
                         regression_groups[reg_group]['collections'].append(collection_code)
-        
+
         programme_data[programme] = {
             'compulsory_courses': compulsory_courses,
             'optional_courses': optional_courses,
@@ -231,25 +259,31 @@ def extract_programme_structure(programme_df):
             'collections': collections,
             'regression_groups': regression_groups
         }
-    
+
     return programme_data
+
+
 programme_data = extract_programme_structure(programme_df)
-#programme_data
+
+
+# programme_data
+# %%
+
 
 def extract_timetable_info(courses_df, programmes_data):
     """
     Extract v parameter with dynamic duration per course
     """
     # Filter for all relevant courses
-    all_relevant_courses = {"G1","G2","G3","G4",'G5','G6','G7','G8','O1','O2','O3','O4'}
-    
+    all_relevant_courses = {"G1", "G2", "G3", "G4", 'G5', 'G6', 'G7', 'G8', 'O1', 'O2', 'O3', 'O4'}
+
     for programme in programmes_data:
         all_relevant_courses.update(programmes_data[programme]['compulsory_courses'])
         all_relevant_courses.update(programmes_data[programme]['optional_courses'])
-    
+
     # Filter timetable data for relevant courses
     relevant_schedule = courses_df[courses_df['Module Name'].isin(all_relevant_courses)].copy()
-    
+
     # Parse timeslot (format: "Monday 10:00")
     def parse_timeslot(timeslot):
         if pd.isna(timeslot):
@@ -261,7 +295,7 @@ def extract_timetable_info(courses_df, programmes_data):
             hour = int(time_str.split(':')[0])
             return day, hour
         return None, None
-    
+
     # Parse weeks (format like "1-11,13-24")
     def parse_weeks(weeks_str):
         if pd.isna(weeks_str):
@@ -274,32 +308,32 @@ def extract_timetable_info(courses_df, programmes_data):
             else:
                 weeks.append(int(part))
         return weeks
-    
+
     # Map days to integers
     day_map = {
-        'Monday': 1, 'Tuesday': 2, 'Wednesday': 3, 'Thursday': 4, 
+        'Monday': 1, 'Tuesday': 2, 'Wednesday': 3, 'Thursday': 4,
         'Friday': 5, 'Saturday': 6, 'Sunday': 7,
         'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6, 'Sun': 7
     }
-    
+
     # Create v parameter dictionary
     v = {}
-    
+
     # For each course, build a dictionary of its scheduled events with durations
     for course in relevant_schedule['Module Name'].unique():
         course_schedule = relevant_schedule[relevant_schedule['Module Name'] == course]
-        
+
         for _, row in course_schedule.iterrows():
             # Get timeslot
             day, start_hour = parse_timeslot(row['Timeslot'])
             if day is None:
                 continue
-                
+
             day_num = day_map.get(day, 0)
             if day_num == 0:
                 print(f"Warning: Unknown day format: {day}")
                 continue
-            
+
             # Get duration from the Duration column
             duration = row['Duration (minutes)']
             if pd.isna(duration):
@@ -313,31 +347,31 @@ def extract_timetable_info(courses_df, programmes_data):
                     'Seminar': 60
                 }
                 duration = default_durations.get(event_type, 60)
-            
+
             # Calculate end hour (assuming duration is in minutes)
             # If duration is 60, end_hour = start_hour + 1
             # If duration is 90, end_hour = start_hour + 1.5 (we'll handle half-hours)
             # For simplicity, we'll treat hour slots as discrete and mark all hours covered
             duration_hours = duration / 60
             end_hour_float = start_hour + duration_hours
-            
+
             # Determine which hour slots this event occupies
             # For integer hours, we can use integer hours
             occupied_hours = []
             current_hour = start_hour
             remaining_duration = duration
-            
+
             while remaining_duration > 0:
                 occupied_hours.append(current_hour)
                 remaining_duration -= 60
                 current_hour += 1
-            
+
             # Alternative: if you want to handle half-hour slots more precisely
             # occupied_hours = [h for h in range(start_hour, start_hour + int(np.ceil(duration_hours)))]
-            
+
             # Parse weeks
             weeks = parse_weeks(row['Weeks'])
-            
+
             # Determine semester
             semester = row['Semester']
             if semester not in [1, 2]:
@@ -348,9 +382,9 @@ def extract_timetable_info(courses_df, programmes_data):
                     semester = 2
                 else:
                     semester = 1
-            
+
             campus = row['Campus']
-            
+
             # For each week the course runs
             for week in weeks:
                 # For each hour slot the course occupies
@@ -361,85 +395,92 @@ def extract_timetable_info(courses_df, programmes_data):
                             v[(course, day_num, hour, week, programme, campus)] = 1
                         else:
                             v[(course, day_num, hour, week, programme, campus)] = 0
-    
-    return v
-programmes_data = extract_programme_structure(programme_df)
-#extract_timetable_info(courses_df, programmes_data)
 
+    return v
+
+
+programmes_data = extract_programme_structure(programme_df)
+
+
+# extract_timetable_info(courses_df, programmes_data)
+# %%
 def extract_days_hours_from_v(v):
     """
     Extract unique days and hours from v dictionary
     """
     if not v:
         # If v is empty, use default days and hours
-        return [1, 2, 3, 4, 5], list(range(9, 18))  # Monday-Friday, 9am-5pm
-    
+        return [1, 2, 3, 4, 5], list(range(9, 17))  # Monday-Friday, 9am-5pm
+
     days = sorted(list(set([key[1] for key in v.keys()])))
     hours = sorted(list(set([key[2] for key in v.keys()])))
-    
+
     # If no days/hours found, use defaults
     if not days:
         days = [1, 2, 3, 4, 5]
     if not hours:
-        hours = list(range(9, 18))
-    
+        hours = list(range(9, 17))
+
     return days, hours
+
 
 # Add this to your extract_all_parameters function
 def extract_all_parameters(courses_df, programme_df):
     """
     Complete extraction including days and hours
     """
-    
+
     # Step 1: Define Maths courses
-    gateway_courses = ["G1","G2","G3","G4",'G5','G6','G7','G8']
-    optional_courses = ['O1','O2','O3','O4']
-    
+    gateway_courses = ["G1", "G2", "G3", "G4", 'G5', 'G6', 'G7', 'G8']
+    optional_courses = ['O1', 'O2', 'O3', 'O4']
+
     # Step 2: Extract programme structure
     programme_data = extract_programme_structure(programme_df)
     programmes = list(programme_data.keys())
-    
+
     # Step 3: Extract timetable info
     v = extract_timetable_info(courses_df, programme_data)
-    
+
     # Step 4: Extract days and hours from v
-    days, hours = extract_days_hours_from_v(v)
+    # days, hours = extract_days_hours_from_v(v)
+    days = [1, 2, 3, 4, 5]
+    hours = [9, 10, 11, 12, 13, 14, 15, 16, 17]
 
     weeks = list(range(1, 53))  # E = {1, ..., 52}
-    weeks_sem1 = list(range(1, 27))  # E_1 = {1, ..., 26}
-    weeks_sem2 = list(range(27, 53))  # E_2 = {27, ..., 52}
+    weeks_sem1 = list(range(9, 19))  # E_1 = {9, ..., 19}
+    weeks_sem2 = list(range(26, 37))  # E_2 = {26, ..., 37}
 
     campuses = courses_df['Campus'].dropna().unique().tolist()
-    
+
     # Build the complete parameter set
     parameters = {
         # Sets
         'G': gateway_courses,
         'O': optional_courses,
         'S': [1, 2],  # Semesters
-        'D': days,    # Days extracted from timetable
-        'H': hours,   # Hours extracted from timetable
+        'D': days,  # Days extracted from timetable
+        'H': hours,  # Hours extracted from timetable
         'W': [1, 2],  # Week parity
         'Q': programmes,
-        'E': weeks,           # All weeks
-        'E1': weeks_sem1,     # Semester 1 weeks
-        'E2': weeks_sem2,     # Semester 2 weeks
-        'K': campuses,        # Campuses
+        'E': weeks,  # All weeks
+        'E1': weeks_sem1,  # Semester 1 weeks
+        'E2': weeks_sem2,  # Semester 2 weeks
+        'K': campuses,  # Campuses
         # Parameters
         'R_g_L': 3,  # Fixed for gateway
         'R_g_W': 1,  # Fixed for gateway
         'R_g_F': 1,  # Fixed for gateway
         'R_o_L': 3,  # Fixed for optional
         'R_o_W': 1,  # Fixed for optional
-        'C_g': 4,    # 4 gateway courses per semester
-        'C_o': 2,    # 2 optional courses per semester
+        'C_g': 4,  # 4 gateway courses per semester
+        'C_o': 2,  # 2 optional courses per semester
         'n_q': {programme: 40 for programme in programmes},  # 40 credits outside Maths
         'n_co': {},  # Credits for each course
         'v': v,
-        
+
         # Programme-specific data
         'programme_data': programme_data,
-        
+
         # Collection and regression groups
         'min_CL': {},
         'max_CL': {},
@@ -448,12 +489,12 @@ def extract_all_parameters(courses_df, programme_df):
         'SC_cl': {},
         'SCL_cr': {}
     }
-    
+
     # Extract credits (same as before)
     all_courses = set(gateway_courses + optional_courses)
     for programme in programmes:
         all_courses.update(programme_data[programme]['all_courses'])
-    
+
     for course in all_courses:
         credit_info = programme_df[programme_df['Course Name'] == course]['SCQF Credits']
         if len(credit_info) > 0:
@@ -476,26 +517,26 @@ def extract_all_parameters(courses_df, programme_df):
         for cl_id, cl_info in prog_collections.items():
             parameters['min_CL'][cl_id] = cl_info['min_value']
             parameters['max_CL'][cl_id] = cl_info['max_value']
-            
+
             if cl_id not in parameters['SC_cl']:
                 parameters['SC_cl'][cl_id] = []
             for course in cl_info['courses']:
                 if course not in parameters['SC_cl'][cl_id]:
                     parameters['SC_cl'][cl_id].append(course)
-    
+
     # Extract regression group information
     for programme in programmes:
         prog_reg_groups = programme_data[programme]['regression_groups']
         for rg_id, rg_info in prog_reg_groups.items():
             parameters['min_CR'][rg_id] = rg_info['min_value']
             parameters['max_CR'][rg_id] = rg_info['max_value']
-            
+
             if rg_id not in parameters['SCL_cr']:
                 parameters['SCL_cr'][rg_id] = []
             for cl in rg_info['collections']:
                 if cl not in parameters['SCL_cr'][rg_id]:
                     parameters['SCL_cr'][rg_id].append(cl)
-    
+
     # Print summary
     print(f"\nExtraction Summary:")
     print(f"  - Gateway courses: {len(parameters['G'])}")
@@ -509,25 +550,28 @@ def extract_all_parameters(courses_df, programme_df):
     print(f"  - Regression groups: {len(parameters['SCL_cr'])}")
     print(f"  - Timetable entries: {len(parameters['v'])}")
     print(f"  - Courses with credits: {len(parameters['n_co'])}")
-    
-    return parameters
-parameters = extract_all_parameters(courses_df,programme_df)
-#extract_all_parameters(courses_df,programme_df)
 
+    return parameters
+
+
+parameters = extract_all_parameters(courses_df, programme_df)
+
+
+# %%
 def create_model_data(parameters):
     """
     Convert extracted parameters into model-ready format
     """
-    
+
     # Create mappings for indices
     course_to_idx = {course: idx for idx, course in enumerate(parameters['G'] + parameters['O'])}
     programme_to_idx = {prog: idx for idx, prog in enumerate(parameters['Q'])}
-    
+
     # Create day and hour mappings
     # You'll need to extract actual days and hours from your timetable data
     days = sorted(list(set([key[1] for key in parameters['v'].keys() if len(key) > 1])))
     hours = sorted(list(set([key[2] for key in parameters['v'].keys() if len(key) > 2])))
-    
+
     model_ready = {
         'G': parameters['G'],
         'O': parameters['O'],
@@ -536,11 +580,11 @@ def create_model_data(parameters):
         'H': hours,
         'W': [1, 2],
         'Q': parameters['Q'],
-        'E': parameters['E'],      # All weeks
-        'E1': parameters['E1'],    # Semester 1 weeks
-        'E2': parameters['E2'],    # Semester 2 weeks
-        'K': parameters['K'],      # Campuses
-        
+        'E': parameters['E'],  # All weeks
+        'E1': parameters['E1'],  # Semester 1 weeks
+        'E2': parameters['E2'],  # Semester 2 weeks
+        'K': parameters['K'],  # Campuses
+
         'R_g_L': parameters['R_g_L'],
         'R_g_W': parameters['R_g_W'],
         'R_g_F': parameters['R_g_F'],
@@ -548,30 +592,32 @@ def create_model_data(parameters):
         'R_o_W': parameters['R_o_W'],
         'C_g': parameters['C_g'],
         'C_o': parameters['C_o'],
-        
+
         'min_CL': parameters['min_CL'],
         'max_CL': parameters['max_CL'],
         'min_CR': parameters['min_CR'],
         'max_CR': parameters['max_CR'],
-        
+
         'n_co': parameters['n_co'],
         'n_q': parameters['n_q'],
-        
-        'CO_CO_q': {prog: parameters['programme_data'][prog]['compulsory_courses'] 
-                   for prog in parameters['Q']},
-        'CO_OP_q': {prog: parameters['programme_data'][prog]['optional_courses'] 
-                   for prog in parameters['Q']},
-        'CO_q': {prog: parameters['programme_data'][prog]['all_courses'] 
-                for prog in parameters['Q']},
-        
+
+        'CO_CO_q': {prog: parameters['programme_data'][prog]['compulsory_courses']
+                    for prog in parameters['Q']},
+        'CO_OP_q': {prog: parameters['programme_data'][prog]['optional_courses']
+                    for prog in parameters['Q']},
+        'CO_q': {prog: parameters['programme_data'][prog]['all_courses']
+                 for prog in parameters['Q']},
+
         'SC_cl': parameters['SC_cl'],
         'SCL_cr': parameters['SCL_cr'],
-        
+
         'v': parameters['v']
     }
-    
+
     return model_ready
 
+
+# %%
 # Extract all parameters
 parameters = extract_all_parameters(courses_df, programme_df)
 
@@ -694,15 +740,16 @@ def build_model_from_parameters(parameters):
     max_CR = parameters['max_CR']
     n_co = parameters['n_co']
     n_q = parameters['n_q']
+    QQ=Q+['math']
 
     # Soft constraint weights
-    lambda_travel = 0.0056
+    lambda_travel = 0.01
     lambda_clash = 0.1
-    lambda_late = 0.3435
-    lambda_lunch = 0.1155
-    lambda_isolated = 0.0578
-    lambda_days = 0.1469
-    lambda_wed = 0.0034
+    lambda_late     = 0.344249   # after 5pm
+    lambda_lunch    = 0.112523   # lunch time
+    lambda_isolated = 0.057430   # isolated class
+    lambda_days     = 0.133207   # number of days
+    lambda_wed      = 0.028978
 
     # Travel time dictionary
     global travel_time_dict
@@ -773,7 +820,7 @@ def build_model_from_parameters(parameters):
 
     # Isolated class indicators
     is_isolated = {}
-    for q in Q:
+    for q in QQ:
         for d in D:
             for h in isolated_hours:
                 for s in S:
@@ -784,7 +831,7 @@ def build_model_from_parameters(parameters):
 
     # Day‑used indicators
     b = {}
-    for q in Q:
+    for q in QQ:
         for d in D:
             for s in S:
                 weeks = E1 if s == 1 else E2
@@ -852,9 +899,8 @@ def build_model_from_parameters(parameters):
             for s in S:
                 for w in W:
                     add_constraint(
-                        xp.Sum(x_L[(g, d, h, s)] + x_W[(g, d, h, s)] for g in G) +
-                        xp.Sum(y_L[(o, d, h, s)] + y_W[(o, d, h, s)] for o in O) +
-                        xp.Sum(x_F[(g, d, h, s, w)] for g in G) <= 1,
+                        xp.Sum(x_L[(g, d, h, s)] for g in G) +
+                        xp.Sum(y_L[(o, d, h, s)]  for o in O) <= 1,
                         f"GlobalNoClash_{d}_{h}_{s}_{w}")
 
     # 4. Events limited to assigned semester
@@ -1012,21 +1058,50 @@ def build_model_from_parameters(parameters):
                     add_constraint(vv >= a[(q, co)] + a[(q, co2)] - 1, f"Ch3_{q}_{co}_{co2}")
 
     # ==================== SOFT CONSTRAINT AUXILIARY ====================
-    # Event presence P for joint curricula
+        # q_math = the pure mathematics curriculum
+    q_math = "math"
+    # QQ= Q.append(q_math)
+    # print('QQ:',QQ)
+        # P[(q,d,h,s,e)] will store the event-presence expression
     P = {}
-    for q in Q:
-        for d in D:
+
+        # --- Pure Mathematics curriculum ---
+    for d in D:
             for h in H:
                 for s in S:
                     weeks = E1 if s == 1 else E2
                     for e in weeks:
-                        gateway_part = xp.Sum(x_L[(g, d, h, s)] for g in G)
-                        nonmaths_part = xp.Sum(a[(q, co)] * v.get((co, d, h, e, q, k), 0)
-                                               for co in CO_q[q] for k in K)
-                        P[(q, d, h, s, e)] = gateway_part + nonmaths_part
+                        P[(q_math, d, h, s, e)] = (
+                                xp.Sum(
+                                    x_L[(g, d, h, s)]
+
+                                    for g in G
+                                ) +
+                                xp.Sum(
+                                    y_L[(o, d, h, s)] for o in O
+                                )
+                        )
+
+        # --- Joint curricula ---
+    for q in Q:
+            if q == q_math:
+                continue
+
+            for d in D:
+                for h in H:
+                    for s in S:
+                        for e in E1 + E2:
+                            P[(q, d, h, s, e)] = (
+                                    xp.Sum(x_L[(g, d, h, s)] for g in G) +
+                                    xp.Sum(
+                                        v.get((co, d, h, e, q, k), 0) * a[(q, co)]
+                                        for co in CO_q[q]
+                                        for k in K
+                                    )
+                            )
 
     # 18. Isolated classes (for hours in isolated_hours)
-    for q in Q:
+    for q in QQ:
         for d in D:
             for s in S:
                 weeks = E1 if s == 1 else E2
@@ -1041,7 +1116,7 @@ def build_model_from_parameters(parameters):
                                        f"IsolatedLe_{q}_{d}_{h}_{s}_{e}")
 
     # 19. Days used (all hours)
-    for q in Q:
+    for q in QQ:
         for d in D:
             for s in S:
                 weeks = E1 if s == 1 else E2
@@ -1139,7 +1214,7 @@ def build_model_from_parameters(parameters):
     late_obj = 0
     lunch_obj = 0
     wed_obj = 0
-    for q in Q:
+    for q in QQ:
         for s in S:
             weeks = E1 if s == 1 else E2
             for e in weeks:
@@ -1153,7 +1228,7 @@ def build_model_from_parameters(parameters):
 
     # Isolated objective
     isolated_obj = 0
-    for q in Q:
+    for q in QQ:
         for d in D:
             for h in isolated_hours:
                 for s in S:
@@ -1163,7 +1238,7 @@ def build_model_from_parameters(parameters):
 
     # Days objective
     days_obj = 0
-    for q in Q:
+    for q in QQ:
         for d in D:
             for s in S:
                 weeks = E1 if s == 1 else E2
@@ -1199,7 +1274,7 @@ def solve_model(parameters):
         row_to_name = {r: name for r, name in constraint_list}
 
         model.setControl('outputlog', 1)
-        model.setControl('miprelstop', 0.25)  # 25% gap
+        model.setControl('miprelstop', 0.85)  # 25% gap
         model.solve()
 
         status_string = model.getProbStatusString()
@@ -1682,3 +1757,4 @@ def plot_maths_timetable(semester, var_sol, parameters,
     plt.tight_layout()
     plt.show()
 plot_maths_timetable(semester=1, var_sol=var_sol, parameters=parameters)
+plot_maths_timetable(semester=2, var_sol=var_sol, parameters=parameters)
